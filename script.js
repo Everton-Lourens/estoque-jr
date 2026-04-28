@@ -13,8 +13,7 @@ const MATERIALS = [
   { id: 'etiqueta-lacre', name: 'Etiqueta Lacre', unit: 'Unidades', description: 'Etiqueta lacre para identificação.' }
 ];
 
-// Ajuste esta URL para o seu backend.
-// Ex.: https://seu-projeto.vercel.app/api/telegram
+// Rota do backend/serverless no Vercel.
 const API_ENDPOINT = '/api/telegram';
 
 const form = document.getElementById('requestForm');
@@ -25,6 +24,9 @@ const feedbackEl = document.getElementById('feedback');
 const materialsListEl = document.getElementById('materialsList');
 const searchInput = document.getElementById('materialSearch');
 const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+
+const selectionState = new Map();
+let currentFilter = '';
 
 function sanitizeText(value) {
   return String(value || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
@@ -40,15 +42,28 @@ function clearFeedback() {
   feedbackEl.textContent = '';
 }
 
+function syncState(materialId, checked, quantity) {
+  if (!checked) {
+    selectionState.delete(materialId);
+    return;
+  }
+
+  const qty = Math.max(1, parseInt(quantity, 10) || 1);
+  selectionState.set(materialId, qty);
+}
+
 function createMaterialCard(material) {
   const article = document.createElement('article');
   article.className = 'material-item';
   article.dataset.materialId = material.id;
   article.dataset.search = `${material.name} ${material.description} ${material.unit}`.toLowerCase();
 
+  const isSelected = selectionState.has(material.id);
+  const selectedQty = selectionState.get(material.id) ?? 1;
+
   article.innerHTML = `
     <div class="material-top">
-      <input type="checkbox" id="${material.id}" class="material-check" aria-label="Selecionar ${material.name}" />
+      <input type="checkbox" id="${material.id}" class="material-check" aria-label="Selecionar ${material.name}" ${isSelected ? 'checked' : ''} />
       <div class="material-label">
         <label for="${material.id}" class="material-name">${material.name}</label>
         <div class="material-desc">${material.description}</div>
@@ -61,7 +76,7 @@ function createMaterialCard(material) {
           type="number"
           min="1"
           step="1"
-          value="1"
+          value="${selectedQty}"
           id="${material.id}-qty"
           class="qty-input"
           inputmode="numeric"
@@ -77,10 +92,13 @@ function createMaterialCard(material) {
   const qtyInput = article.querySelector('.qty-input');
 
   const syncSelection = () => {
-    article.classList.toggle('selected', checkbox.checked);
-    qtyWrap.style.display = checkbox.checked ? 'grid' : 'none';
-    if (checkbox.checked && (!qtyInput.value || Number(qtyInput.value) < 1)) {
+    const checked = checkbox.checked;
+    article.classList.toggle('selected', checked);
+    qtyWrap.style.display = checked ? 'grid' : 'none';
+    syncState(material.id, checked, qtyInput.value);
+    if (checked && (!qtyInput.value || Number(qtyInput.value) < 1)) {
       qtyInput.value = 1;
+      syncState(material.id, true, 1);
     }
   };
 
@@ -88,14 +106,18 @@ function createMaterialCard(material) {
   qtyInput.addEventListener('input', () => {
     if (qtyInput.value === '' || Number(qtyInput.value) < 1) {
       qtyInput.value = '';
+      if (checkbox.checked) selectionState.delete(material.id);
+      return;
     }
+    if (checkbox.checked) syncState(material.id, true, qtyInput.value);
   });
 
   syncSelection();
   return article;
 }
 
-function renderMaterials(filter = '') {
+function renderMaterials(filter = currentFilter) {
+  currentFilter = filter;
   materialsListEl.innerHTML = '';
   const term = filter.trim().toLowerCase();
 
@@ -114,19 +136,7 @@ function renderMaterials(filter = '') {
 }
 
 function getSelectedMaterials() {
-  const selected = [];
-  document.querySelectorAll('.material-item').forEach((item) => {
-    const checkbox = item.querySelector('.material-check');
-    const qtyInput = item.querySelector('.qty-input');
-    if (checkbox.checked) {
-      const qty = Math.max(1, parseInt(qtyInput.value, 10) || 0);
-      selected.push({
-        id: item.dataset.materialId,
-        quantity: qty
-      });
-    }
-  });
-  return selected;
+  return [...selectionState.entries()].map(([id, quantity]) => ({ id, quantity }));
 }
 
 function validateForm() {
@@ -164,14 +174,8 @@ function collectPayload() {
 }
 
 function clearSelection() {
-  document.querySelectorAll('.material-item').forEach((item) => {
-    const checkbox = item.querySelector('.material-check');
-    const qtyInput = item.querySelector('.qty-input');
-    checkbox.checked = false;
-    qtyInput.value = 1;
-    item.classList.remove('selected');
-    item.querySelector('.qty-wrap').style.display = 'none';
-  });
+  selectionState.clear();
+  renderMaterials(currentFilter);
   showFeedback('info', 'Seleção de materiais limpa.');
 }
 
@@ -200,7 +204,9 @@ form.addEventListener('submit', async (event) => {
 
     showFeedback('success', 'Solicitação enviada com sucesso para o Telegram.');
     form.reset();
-    renderMaterials(searchInput.value);
+    selectionState.clear();
+    renderMaterials(currentFilter);
+    technicianInput.focus();
   } catch (error) {
     console.error(error);
     showFeedback('error', error.message || 'Não foi possível enviar a solicitação.');

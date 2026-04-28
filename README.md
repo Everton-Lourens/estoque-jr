@@ -1,22 +1,22 @@
 # JR TELECOM - CAMAÇARI | Solicitação de Materiais
 
-Este pacote contém:
-- interface HTML/CSS/JS para o formulário;
-- lista de materiais conforme o modelo solicitado;
-- envio da mensagem para o Telegram via backend;
-- data e hora geradas somente no backend.
+Aplicação web para solicitar materiais e enviar a solicitação para um grupo do Telegram.
 
-## Importante
-GitHub Pages hospeda apenas arquivos estáticos. Para enviar ao Telegram sem expor o token no navegador, é necessário hospedar a rota `/api/telegram` em um backend compatível com Vercel.
+## Estrutura
+- `index.html` — interface do formulário
+- `style.css` — estilos
+- `script.js` — lógica do formulário e envio
+- `api/telegram.js` — função serverless do Vercel que envia a mensagem ao Telegram
 
-## Como usar
-1. Crie o bot no Telegram com o BotFather.
-2. Copie o token e o chat_id para as variáveis de ambiente.
-3. Faça o deploy do projeto em Vercel.
-4. Se o frontend estiver em outro domínio, altere `API_ENDPOINT` em `script.js` para a URL completa do seu backend.
+## Como publicar no Vercel
+1. Suba estes arquivos para o GitHub.
+2. Conecte o repositório ao Vercel.
+3. Configure as variáveis de ambiente no projeto:
+   - `TELEGRAM_BOT_TOKEN`
+   - `TELEGRAM_CHAT_ID`
+4. Faça o deploy.
 
-## Arquivos principais
-- `index.html`
-- `style.css`
-- `script.js`
-- `api/telegram.js`
+## Observações
+- A página principal fica em `/`.
+- A rota de envio é `/api/telegram`.
+- A mensagem é formatada no backend/serverless, incluindo data e hora.
