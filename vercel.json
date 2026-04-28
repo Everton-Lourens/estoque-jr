@@ -1,6 +1,6 @@
 {
   "routes": [
-    { "src": "/", "dest": "/index.html" },
-    { "src": "/api/telegram", "dest": "/api/telegram.js" }
+    { "handle": "filesystem" },
+    { "src": "/.*", "dest": "/index.html" }
   ]
 }
