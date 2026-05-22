@@ -3,53 +3,58 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>JR TELECOM CAMAÇARI | Solicitação de Materiais</title>
-  <meta name="description" content="Solicitação de materiais da base JR TELECOM CAMAÇARI." />
+  <title>JR TELECOM - CAMAÇARI | Pedido de Materiais</title>
+  <meta name="description" content="Pedido de materiais para a JR TELECOM - CAMAÇARI." />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main class="page">
     <section class="hero">
-<div class="brand">
-  <div class="brand-mark">
-    <img src="logo-jr.jpg" alt="JR Telecom" />
-  </div>
-
-  <div class="brand-copy">
-    <p class="eyebrow">JR TELECOM</p>
-    <h1>CAMAÇARI</h1>
-    <p>Selecione somente os materiais necessários.</p>
-  </div>
-</div>
-
-      
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">JR</div>
+        <div class="brand-copy">
+          <p class="eyebrow">Pedido de materiais</p>
+          <h1>JR TELECOM - CAMAÇARI</h1>
+          <p>
+            Selecione os materiais, informe os dados do atendimento e envie o pedido
+            diretamente para o Telegram.
+          </p>
+        </div>
+      </div>
 
       <aside class="hero-card">
-  <span class="hero-tag">Dias de solicitação de materiais:</span>
-  <strong>Terça, Quinta e Sábado.</strong>
-        <div style="display: flex; gap: 5px;">
-  <p style="position: relative; top: -3px;">Hoje é:</p>
-  <p id="status-dia"></p>
-        </div>
+        <span class="hero-tag">GitHub Pages</span>
+        <strong>Site estático, leve e pronto para publicar.</strong>
+        <p>Os dados de data e hora são gerados no envio e não aparecem na tela.</p>
       </aside>
     </section>
 
     <section class="card">
       <header class="section-head">
-        <p>O nome do técnico é obrigatório.</p>
+        <h2>Dados do pedido</h2>
+        <p>Preencha apenas as informações necessárias para identificação do atendimento.</p>
       </header>
 
       <form id="requestForm" novalidate>
         <div class="grid">
-          <div class="field full-width">
+          <div class="field">
             <label for="technicianName">Nome do técnico <span>*</span></label>
             <input type="text" id="technicianName" name="technicianName" placeholder="Digite o nome do técnico" autocomplete="name" required />
           </div>
-          <div class="field full-width">
-            <label for="baseChatId">Base <span>*</span></label>
-            <select id="baseChatId" name="baseChatId" required>
-              <option value="">&lt;Selecione&gt;</option>
-            </select>
+
+          <div class="field">
+            <label for="sector">Setor / local de atendimento</label>
+            <input type="text" id="sector" name="sector" placeholder="Ex.: cliente, rua, bairro, setor..." />
+          </div>
+
+          <div class="field">
+            <label for="internalId">Identificação complementar</label>
+            <input type="text" id="internalId" name="internalId" placeholder="Ex.: OS, observação interna..." />
+          </div>
+
+          <div class="field">
+            <label for="observations">Observações</label>
+            <textarea id="observations" name="observations" rows="4" placeholder="Informações adicionais do pedido..."></textarea>
           </div>
         </div>
 
@@ -57,6 +62,7 @@
           <div class="materials-head">
             <div>
               <h2>Materiais solicitados</h2>
+              <p>Marque os itens e ajuste a quantidade desejada.</p>
             </div>
             <button type="button" class="ghost-btn" id="clearSelectionBtn">Limpar seleção</button>
           </div>
@@ -67,9 +73,10 @@
         <div id="feedback" class="feedback" role="status" aria-live="polite"></div>
 
         <div class="actions">
-          <button type="submit" class="primary-btn">Enviar</button>
-          <p class="actions-note">Dias de recebimento do material:<br>
-            Segunda, Quarta e Sexta.</p>
+          <button type="submit" class="primary-btn">Enviar pedido ao Telegram</button>
+          <p class="actions-note">
+            O pedido também gera um arquivo .txt para download com os dados completos.
+          </p>
         </div>
       </form>
     </section>
