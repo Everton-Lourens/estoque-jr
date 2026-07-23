@@ -5,6 +5,7 @@ window.ALMOXARIFADO_CONFIG = {
   defaultStatusPedido: "Aberto",
   defaultStatusItem: "Pendente",
   defaultPriority: "Normal",
+  stockMinimumMultiplierLimit: 2,
   baseName: "CAMAÇARI",
   telegramBotToken: "8675551330:AAH5G9TcjqoI-rjvCr-QBAlQ4Wsxkolu9hY",
   telegramBases: [

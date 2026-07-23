@@ -309,11 +309,12 @@
     const itemId = String(item.id_item || "").trim();
     const domId = `item-${itemId.replace(/[^a-zA-Z0-9-_]+/g, "_") || Math.random().toString(36).slice(2)}`;
     const name = item.label || item.nome_item || `Item ${itemId}`;
+    const estoqueMinimo = getStockMinimumValue(item);
     const descParts = [];
     if (item.nome_item && item.nome_item !== name) descParts.push(item.nome_item);
     if (item.unidade) descParts.push(`Unidade: ${item.unidade}`);
-    if (item.estoque_minimo !== null && item.estoque_minimo !== undefined && item.estoque_minimo !== "") {
-      descParts.push(`Estoque mínimo: ${item.estoque_minimo}`);
+    if (estoqueMinimo !== null) {
+      descParts.push(`Estoque mínimo: ${estoqueMinimo}`);
     }
     if (!descParts.length) descParts.push("Carregado do Google Sheets.");
 
@@ -327,38 +328,120 @@
       </div>
       <div class="qty-wrap">
         <label for="${domId}-qty">Quantidade</label>
-        <input
-          id="${domId}-qty"
-          class="qty-input"
-          type="number"
-          min="1"
-          step="1"
-          value="1"
-          inputmode="numeric"
-          aria-label="Quantidade de ${escapeHtml(name)}"
-        />
+        ${buildQuantityControlHtml({ item, domId })}
       </div>
     `;
 
     const checkbox = article.querySelector(".material-check");
     const qtyWrap = article.querySelector(".qty-wrap");
-    const qtyInput = article.querySelector(".qty-input");
+    const qtyControl = article.querySelector(".qty-input");
 
     const syncSelection = () => {
-      article.classList.toggle("selected", checkbox.checked);
-      qtyWrap.style.display = checkbox.checked ? "grid" : "none";
+      const selected = Boolean(checkbox?.checked);
+      article.classList.toggle("selected", selected);
+      qtyWrap.style.display = selected ? "grid" : "none";
+      if (selected) {
+        setCardQuantityValue(article, item, parsePositiveInteger(qtyControl?.value));
+      }
     };
 
     checkbox.addEventListener("change", syncSelection);
 
-    qtyInput.addEventListener("input", () => {
-      if (qtyInput.value === "") return;
-      const value = Number(qtyInput.value);
-      if (!Number.isInteger(value) || value < 1) qtyInput.value = "1";
-    });
+    if (qtyControl?.tagName === "INPUT") {
+      qtyControl.addEventListener("input", () => {
+        if (qtyControl.value === "") return;
+        const value = Number(qtyControl.value);
+        if (!Number.isInteger(value) || value < 1) qtyControl.value = "1";
+      });
+    }
 
     syncSelection();
     return article;
+  }
+
+  function parsePositiveInteger(value) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return null;
+    const integer = Math.trunc(parsed);
+    return integer > 0 ? integer : null;
+  }
+
+  function getStockMinimumValue(item) {
+    return parsePositiveInteger(item?.estoque_minimo);
+  }
+
+  function getStockMultiplierLimit() {
+    return parsePositiveInteger(CONFIG.stockMinimumMultiplierLimit) || 2;
+  }
+
+  function buildQuantityOptions(minimum, multiplierLimit = getStockMultiplierLimit()) {
+    if (!Number.isInteger(minimum) || minimum <= 0) return [];
+    const limit = Math.max(1, Number(multiplierLimit) || 1);
+    return Array.from({ length: limit }, (_, index) => minimum * (index + 1));
+  }
+
+  function buildQuantityControlHtml({ item, domId }) {
+    const minimum = getStockMinimumValue(item);
+
+    if (minimum === null) {
+      return `
+        <input
+          id="${domId}-qty"
+          class="qty-input qty-number"
+          type="number"
+          min="1"
+          step="1"
+          value="1"
+          inputmode="numeric"
+          aria-label="Quantidade de ${escapeHtml(item.label || item.nome_item || `Item ${item.id_item || ""}`)}"
+        />
+      `;
+    }
+
+    const options = buildQuantityOptions(minimum);
+    const optionsHtml = options.map((value) => `<option value="${value}">${value}</option>`).join("");
+
+    return `
+      <select
+        id="${domId}-qty"
+        class="qty-input qty-select"
+        aria-label="Quantidade de ${escapeHtml(item.label || item.nome_item || `Item ${item.id_item || ""}`)}"
+      >
+        ${optionsHtml}
+      </select>
+    `;
+  }
+
+  function setCardQuantityValue(card, item, preferredQuantity = null) {
+    const qtyControl = card.querySelector(".qty-input");
+    if (!qtyControl) return;
+
+    const minimum = getStockMinimumValue(item);
+    const preferred = parsePositiveInteger(preferredQuantity);
+
+    if (minimum === null) {
+      qtyControl.value = String(preferred || 1);
+      return;
+    }
+
+    const options = buildQuantityOptions(minimum);
+    const target = options.includes(preferred) ? preferred : options[0];
+    qtyControl.value = String(target || minimum);
+  }
+
+  function getItemForCard(card) {
+    if (!card) return null;
+    return state.itemIndex.get(normalizeForMatch(card.dataset.itemId || "")) || null;
+  }
+
+  function isQuantityAllowedForItem(item, quantity) {
+    const parsed = parsePositiveInteger(quantity);
+    if (!parsed) return false;
+
+    const minimum = getStockMinimumValue(item);
+    if (minimum === null) return parsed > 0;
+
+    return buildQuantityOptions(minimum).includes(parsed);
   }
 
   function escapeHtml(value) {
@@ -478,9 +561,9 @@
   function clearSelection() {
     refs.materialsList?.querySelectorAll(".material-item").forEach((card) => {
       const checkbox = card.querySelector(".material-check");
-      const qtyInput = card.querySelector(".qty-input");
+      const item = getItemForCard(card);
       if (checkbox) checkbox.checked = false;
-      if (qtyInput) qtyInput.value = "1";
+      setCardQuantityValue(card, item);
       card.classList.remove("selected");
       const qtyWrap = card.querySelector(".qty-wrap");
       if (qtyWrap) qtyWrap.style.display = "none";
@@ -504,6 +587,7 @@
         if (!itemId || !Number.isInteger(quantidade) || quantidade <= 0) return null;
 
         const item = state.itemIndex.get(normalizeForMatch(itemId)) || null;
+        if (!item || !isQuantityAllowedForItem(item, quantidade)) return null;
 
         return {
           id_item: itemId,
@@ -552,7 +636,8 @@
     const invalidCard = Array.from(refs.materialsList?.querySelectorAll(".material-item") || []).find((card) => {
       const checkbox = card.querySelector(".material-check");
       const qtyInput = card.querySelector(".qty-input");
-      return Boolean(checkbox?.checked) && (!qtyInput?.value || Number(qtyInput.value) <= 0);
+      const item = getItemForCard(card);
+      return Boolean(checkbox?.checked) && !isQuantityAllowedForItem(item, qtyInput?.value);
     });
 
     if (invalidCard) {
@@ -1028,20 +1113,14 @@
           const itemId = String(card.dataset.itemId || "");
           const selected = draft.itens.find((item) => String(item.id_item) === itemId);
           const checkbox = card.querySelector(".material-check");
-          const qtyInput = card.querySelector(".qty-input");
-          if (!checkbox || !qtyInput) return;
+          if (!checkbox) return;
+
           checkbox.checked = Boolean(selected);
-          if (selected) {
-            qtyInput.value = String(selected.quantidade || 1);
-            card.classList.add("selected");
-            const qtyWrap = card.querySelector(".qty-wrap");
-            if (qtyWrap) qtyWrap.style.display = "grid";
-          } else {
-            qtyInput.value = "1";
-            card.classList.remove("selected");
-            const qtyWrap = card.querySelector(".qty-wrap");
-            if (qtyWrap) qtyWrap.style.display = "none";
-          }
+          setCardQuantityValue(card, getItemForCard(card), selected ? selected.quantidade : null);
+
+          const qtyWrap = card.querySelector(".qty-wrap");
+          if (qtyWrap) qtyWrap.style.display = checkbox.checked ? "grid" : "none";
+          card.classList.toggle("selected", checkbox.checked);
         });
       }
 

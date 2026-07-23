@@ -15,3 +15,4 @@ Pontos de atenção:
 
 Próximo passo provável:
 - Validar os nomes exibidos dos itens e o comportamento do bootstrap com a planilha real em produção.
+- Se necessário, avaliar se o limite de multiplicação em `config.js` deve ser exposto em uma tela administrativa.
