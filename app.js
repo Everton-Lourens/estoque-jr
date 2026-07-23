@@ -20,16 +20,7 @@
     setStatus("Carregando dados iniciais do Apps Script...");
     loadBootstrap()
       .then((data) => {
-        state.bootstrap = data;
-        state.funcionarios = Array.isArray(data.funcionarios) ? data.funcionarios : [];
-        state.itens = Array.isArray(data.itens) ? data.itens : [];
-        state.lists = data.lists || {};
-        state.ready = true;
-
-        renderBootstrap(data);
-        restoreDraft();
-        syncSummary();
-
+        applyBootstrap(data, { source: "remote" });
         const issues = Array.isArray(data.diagnostics?.issues) ? data.diagnostics.issues.filter(Boolean) : [];
         if (issues.length) {
           setStatus(`Bootstrap carregado com alertas: ${issues.join(" • ")}`, "loading");
@@ -39,10 +30,21 @@
       })
       .catch((err) => {
         console.error(err);
+
+        const cached = readCachedBootstrap();
+        if (cached) {
+          applyBootstrap(cached, { source: "cache" });
+          setStatus(
+            `Usando dados em cache porque o Apps Script não respondeu: ${err && err.message ? err.message : "Falha de comunicação"}`,
+            "loading"
+          );
+          return;
+        }
+
+        const fallback = buildOfflineBootstrap(err);
+        applyBootstrap(fallback, { source: "offline" });
         setStatus(
-          err && err.message
-            ? `Não foi possível carregar o bootstrap: ${err.message}`
-            : "Não foi possível carregar o bootstrap. Verifique o URL do Apps Script e a publicação do web app.",
+          `Sem acesso ao Apps Script no momento. O site foi aberto em modo local com dados base. ${err && err.message ? err.message : "Falha de comunicação"}`,
           "error"
         );
       });
@@ -106,6 +108,97 @@
           );
         }
       }
+    }
+  }
+
+
+  function applyBootstrap(data, { source = "remote" } = {}) {
+    const normalized = normalizeBootstrap(data, source);
+    state.bootstrap = normalized;
+    state.funcionarios = Array.isArray(normalized.funcionarios) ? normalized.funcionarios : [];
+    state.itens = Array.isArray(normalized.itens) ? normalized.itens : [];
+    state.lists = normalized.lists || {};
+    state.ready = true;
+
+    cacheBootstrap(normalized);
+    renderBootstrap(normalized, source);
+    restoreDraft();
+    syncSummary();
+  }
+
+  function normalizeBootstrap(data, source = "remote") {
+    const normalized = data && typeof data === "object" ? data : {};
+    const defaults = normalized.defaults || {};
+
+    return {
+      ...normalized,
+      app: normalized.app || {},
+      lists: normalized.lists || {},
+      funcionarios: Array.isArray(normalized.funcionarios) ? normalized.funcionarios : [],
+      itens: Array.isArray(normalized.itens) ? normalized.itens : [],
+      defaults: {
+        dateToday: defaults.dateToday || todayIso(),
+        pedidoStatus: defaults.pedidoStatus || CONFIG.defaultStatusPedido,
+        itemStatus: defaults.itemStatus || CONFIG.defaultStatusItem,
+      },
+      diagnostics: normalized.diagnostics || {},
+      source,
+    };
+  }
+
+  function buildOfflineBootstrap(error) {
+    const message = error && error.message ? error.message : "Falha de comunicação";
+    return normalizeBootstrap(
+      {
+        app: {
+          name: CONFIG.appName,
+          version: "offline",
+        },
+        lists: {
+          prioridade: [CONFIG.defaultPriority, "Alta", "Média", "Baixa"],
+          status_item: [CONFIG.defaultStatusItem, "Pendente", "Separado", "Entregue"],
+        },
+        funcionarios: [],
+        itens: [],
+        defaults: {
+          dateToday: todayIso(),
+          pedidoStatus: CONFIG.defaultStatusPedido,
+          itemStatus: CONFIG.defaultStatusItem,
+        },
+        diagnostics: {
+          issues: [message],
+          degraded: true,
+        },
+      },
+      "offline"
+    );
+  }
+
+  function cacheBootstrap(data) {
+    if (!data || data.source !== "remote") {
+      return;
+    }
+
+    try {
+      localStorage.setItem("almoxarifado:lastBootstrap", JSON.stringify(data));
+    } catch (err) {
+      console.warn("Não foi possível salvar o bootstrap em cache:", err);
+    }
+  }
+
+  function readCachedBootstrap() {
+    try {
+      const saved = localStorage.getItem("almoxarifado:lastBootstrap");
+      if (!saved) return null;
+
+      const parsed = JSON.parse(saved);
+      if (!parsed || typeof parsed !== "object") return null;
+      if (parsed.source === "offline") return null;
+
+      return normalizeBootstrap(parsed, "cache");
+    } catch (err) {
+      console.warn("Cache de bootstrap inválido:", err);
+      return null;
     }
   }
 
@@ -265,10 +358,15 @@
     return response || {};
   }
 
-  function renderBootstrap(data) {
+  function renderBootstrap(data, source = "remote") {
     refs.appPill.textContent = data.app?.name || CONFIG.appName;
-    refs.dbStatus.textContent = "Conectado";
-    refs.dbDescription.textContent = "Funcionários, itens e listas carregados do Google Sheets via Apps Script.";
+    refs.dbStatus.textContent = source === "remote" ? "Conectado" : source === "cache" ? "Cache local" : "Modo local";
+    refs.dbDescription.textContent =
+      source === "remote"
+        ? "Funcionários, itens e listas carregados do Google Sheets via Apps Script."
+        : source === "cache"
+          ? "O Apps Script não respondeu agora, então o site foi carregado com os dados salvos no navegador."
+          : "O Apps Script não respondeu; o formulário abriu com dados base para manter o site utilizável.";
     refs.defaultDate.textContent = data.defaults?.dateToday || todayIso();
     refs.pedidoStatusBadge.textContent = data.defaults?.pedidoStatus || CONFIG.defaultStatusPedido;
 
@@ -286,7 +384,9 @@
     const options = buildOptionsFromList(data.lists?.prioridade, [CONFIG.defaultPriority, "Alta", "Média", "Baixa"]);
     refs.prioridade.innerHTML = "";
     options.forEach(({ value, label }) => refs.prioridade.add(new Option(label, value)));
-    refs.prioridade.value = CONFIG.defaultPriority;
+    refs.prioridade.value = options.some((option) => option.value === CONFIG.defaultPriority)
+      ? CONFIG.defaultPriority
+      : (options[0]?.value || CONFIG.defaultPriority);
   }
 
   function fillFuncionarioOptions() {
