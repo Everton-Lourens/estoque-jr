@@ -29,24 +29,18 @@
         }
       })
       .catch((err) => {
-        console.error(err);
+        console.error("Bootstrap remoto indisponível; usando fallback local.", err);
 
         const cached = readCachedBootstrap();
         if (cached) {
           applyBootstrap(cached, { source: "cache" });
-          setStatus(
-            `Usando dados em cache porque o Apps Script não respondeu: ${err && err.message ? err.message : "Falha de comunicação"}`,
-            "loading"
-          );
+          setStatus("O Apps Script não respondeu agora. O site foi aberto com os dados salvos no navegador.", "loading");
           return;
         }
 
         const fallback = buildOfflineBootstrap(err);
         applyBootstrap(fallback, { source: "offline" });
-        setStatus(
-          `Sem acesso ao Apps Script no momento. O site foi aberto em modo local com dados base. ${err && err.message ? err.message : "Falha de comunicação"}`,
-          "error"
-        );
+        setStatus("O Apps Script não respondeu agora. O formulário foi aberto em modo local com dados base.", "loading");
       });
   }
 
@@ -146,32 +140,59 @@
     };
   }
 
-  function buildOfflineBootstrap(error) {
+  function buildLocalSeedBootstrap(error) {
     const message = error && error.message ? error.message : "Falha de comunicação";
-    return normalizeBootstrap(
-      {
-        app: {
-          name: CONFIG.appName,
-          version: "offline",
-        },
-        lists: {
-          prioridade: [CONFIG.defaultPriority, "Alta", "Média", "Baixa"],
-          status_item: [CONFIG.defaultStatusItem, "Pendente", "Separado", "Entregue"],
-        },
-        funcionarios: [],
-        itens: [],
-        defaults: {
-          dateToday: todayIso(),
-          pedidoStatus: CONFIG.defaultStatusPedido,
-          itemStatus: CONFIG.defaultStatusItem,
-        },
-        diagnostics: {
-          issues: [message],
-          degraded: true,
-        },
+
+    return {
+      app: {
+        name: CONFIG.appName,
+        version: "local-seed",
       },
-      "offline"
-    );
+      lists: {
+        sexo: ["Masculino", "Feminino", "Outro"],
+        status_pedido: [CONFIG.defaultStatusPedido, "Aprovado", "Separado", "Entregue", "Cancelado"],
+        status_item: [CONFIG.defaultStatusItem, "Separado", "Entregue", "Cancelado"],
+        ativo: ["Sim", "Não"],
+        tipo_movimentacao: ["Entrada", "Saída", "Ajuste", "Devolução"],
+        unidade: ["UN", "CX", "PCT", "PAR", "KG"],
+        prioridade: [CONFIG.defaultPriority, "Média", "Alta", "Urgente"],
+      },
+      funcionarios: [
+        {
+          id_funcionario: "1",
+          id_pessoa: "1",
+          nome: "Everton Lourenço",
+          sexo: "Masculino",
+          funcao: "Técnico de Instalação",
+          ativo: "Sim",
+          label: "Everton Lourenço - Técnico de Instalação",
+        },
+      ],
+      itens: [
+        {
+          id_item: "1",
+          nome_item: "Conector",
+          unidade: "UN",
+          estoque_minimo: 30,
+          ativo: "Sim",
+          label: "Conector (UN)",
+        },
+      ],
+      defaults: {
+        dateToday: todayIso(),
+        pedidoStatus: CONFIG.defaultStatusPedido,
+        itemStatus: CONFIG.defaultStatusItem,
+      },
+      diagnostics: {
+        issues: [message, "Usando dados locais derivados do template da planilha."],
+        degraded: true,
+        source: "local-seed",
+      },
+    };
+  }
+
+  function buildOfflineBootstrap(error) {
+    return normalizeBootstrap(buildLocalSeedBootstrap(error), "offline");
   }
 
   function cacheBootstrap(data) {
