@@ -17,6 +17,7 @@ Pacote para publicar no **GitHub Pages** e consumir o **Google Apps Script** com
 
 ## Integração
 - Leitura inicial: `action=bootstrap` com JSONP como caminho principal e `fetch()` como fallback de compatibilidade.
+- Se o Apps Script não responder, o frontend usa o último bootstrap salvo no navegador; se não houver cache, abre em modo local com listas base para manter a tela funcional.
 - Envio do pedido: `action=createPedido` por `fetch()` com JSON, com fallback simplificado `no-cors` quando o navegador bloquear a leitura da resposta.
 - O bootstrap continua suportando resposta parcial com `diagnostics.issues`.
 - O frontend prepara o payload com cabeçalho + itens e também tenta manter a navegação funcional quando a política de origem cruzada limita a leitura da resposta.

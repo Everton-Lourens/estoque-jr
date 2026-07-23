@@ -526,7 +526,14 @@
         status_item,
         observacao,
       };
-    }).filter((item) => item.id_item || item.quantidade || item.observacao);
+    }).filter((item) => {
+      const isDefaultRow = !item.id_item
+        && Number(item.quantidade || 0) === 1
+        && item.status_item === CONFIG.defaultStatusItem
+        && !item.observacao;
+
+      return !isDefaultRow;
+    });
 
     return {
       id_funcionario: refs.id_funcionario.value,
