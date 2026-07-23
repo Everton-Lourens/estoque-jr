@@ -19,8 +19,10 @@ Ao salvar com sucesso, o frontend deve redirecionar para `frontend/sucess/index.
 A submissão bem-sucedida deve enviar os dados para Google Sheets e Telegram em paralelo.
 
 ### Aplicação
-- O fluxo usa `Promise.allSettled([sendToSheets(...), sendToTelegram(...)])` para registrar ambos os destinos.
-- Falha em qualquer um dos destinos deve ser tratada como erro de envio.
+- O fluxo usa `Promise.allSettled([sendToSheets(...), sendToTelegram(...)])` quando os destinos estão habilitados na config.
+- Resultados de `Promise.allSettled` devem ser normalizados antes de ler `.status` ou `.reason`.
+- Falha em qualquer destino habilitado deve ser tratada como erro de envio.
+- Destinos desabilitados na config contam como sucesso por definição e não devem bloquear o submit.
 
 ### Regra
 Ao ocorrer erro de envio, o frontend deve redirecionar para `frontend/sucess/index.html?mode=error`.

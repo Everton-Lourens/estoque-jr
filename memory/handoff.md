@@ -5,7 +5,7 @@ Estado atual:
 - O nome do técnico saiu de campo de texto e virou um `<select>` alimentado por `funcionario` do Sheets.
 - A lista de itens não usa mais catálogo fixo no JS: os cards de checkbox são renderizados a partir de `bootstrap.itens`.
 - A configuração operacional foi separada em `config.js`.
-- O submit agora bloqueia a interface com overlay escuro, envia para Google Sheets e Telegram em paralelo e leva o usuário para `frontend/sucess/index.html` em modo de sucesso ou erro.
+- O submit agora bloqueia a interface com overlay escuro, envia para Google Sheets e Telegram em paralelo quando as flags de config estão ativas e leva o usuário para `frontend/sucess/index.html` em modo de sucesso ou erro.
 - Em sucesso, o `draft` é limpo antes do redirecionamento; em erro, o rascunho fica preservado para nova tentativa.
 - A página `frontend/sucess/` é responsável por baixar automaticamente o TXT e por enviar a cópia para WhatsApp/compartilhamento.
 
@@ -19,3 +19,5 @@ Pontos de atenção:
 Próximo passo provável:
 - Validar o fluxo real de redirecionamento para `sucess/`, o download automático do TXT e o envio para WhatsApp no navegador de destino.
 - Se necessário, avaliar se o limite de multiplicação em `config.js` deve ser exposto em uma tela administrativa.
+
+- Os resultados do `Promise.allSettled` são normalizados antes de ler `status`, para evitar `undefined.status` em variações de configuração ou ambiente.

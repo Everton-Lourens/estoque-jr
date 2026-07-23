@@ -16,3 +16,8 @@
 ## Próximos passos
 - Conferir em produção se o redirecionamento relativo para `sucess/` funciona no ambiente de publicação.
 - Validar o comportamento do navegador ao baixar o TXT automaticamente e ao abrir o WhatsApp.
+
+## Atualização 2026-07-23
+- O fluxo de envio foi blindado com normalização dos resultados de `Promise.allSettled` antes de acessar `status`.
+- As flags `sendGoogleSheets` e `sendTelegram` passam a definir o que conta como sucesso no submit.
+- Quando nenhum destino estiver habilitado, o submit falha com mensagem explícita em vez de quebrar com `undefined.status`.

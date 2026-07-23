@@ -5,6 +5,8 @@ window.ALMOXARIFADO_CONFIG = {
   defaultStatusPedido: "Aberto",
   defaultStatusItem: "Pendente",
   defaultPriority: "Normal",
+  sendGoogleSheets: true,
+  sendTelegram: true,
   stockMinimumMultiplierLimit: 2,
   baseName: "CAMAÇARI",
   successWhatsAppNumber: "",

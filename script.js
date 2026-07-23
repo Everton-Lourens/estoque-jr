@@ -676,12 +676,18 @@
       sheetPayload = buildPayloadForSheets(selectedItems, currentShape);
 
       if (!state.canSyncSheets) {
-        const telegramResult = await Promise.resolve()
-          .then(() => sendToTelegram(telegramMessage, currentShape.baseChatId))
-          .then(
-            (value) => ({ status: "fulfilled", value }),
-            (reason) => ({ status: "rejected", reason })
-          );
+        if (!CONFIG.sendTelegram) {
+          throw new Error("Nenhum destino de envio está habilitado nesta sessão.");
+        }
+
+        const telegramResult = normalizeSettledResult(
+          await Promise.resolve()
+            .then(() => sendToTelegram(telegramMessage, currentShape.baseChatId))
+            .then(
+              (value) => ({ status: "fulfilled", value }),
+              (reason) => ({ status: "rejected", reason })
+            )
+        );
 
         const telegramOk = telegramResult.status === "fulfilled";
         if (telegramOk) {
@@ -744,13 +750,16 @@
         return;
       }
 
-      const [sheetResult, telegramResult] = await Promise.allSettled([
-        sendToSheets(sheetPayload),
-        sendToTelegram(telegramMessage, currentShape.baseChatId),
+      const settledResults = await Promise.allSettled([
+        CONFIG.sendGoogleSheets ? sendToSheets(sheetPayload) : Promise.resolve(null),
+        CONFIG.sendTelegram ? sendToTelegram(telegramMessage, currentShape.baseChatId) : Promise.resolve(null),
       ]);
 
-      const sheetOk = sheetResult.status === "fulfilled";
-      const telegramOk = telegramResult.status === "fulfilled";
+      const sheetResult = normalizeSettledResult(settledResults[0]);
+      const telegramResult = normalizeSettledResult(settledResults[1]);
+
+      const sheetOk = !CONFIG.sendGoogleSheets || sheetResult.status === "fulfilled";
+      const telegramOk = !CONFIG.sendTelegram || telegramResult.status === "fulfilled";
 
       if (sheetOk && telegramOk) {
         const successPayload = {
@@ -1431,6 +1440,14 @@
     document.body.removeChild(link);
 
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  function normalizeSettledResult(entry) {
+    if (entry && typeof entry === "object" && "status" in entry) {
+      return entry;
+    }
+
+    return { status: "fulfilled", value: null };
   }
 
   function buildSupportReport(error, context = {}) {
