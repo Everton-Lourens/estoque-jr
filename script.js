@@ -666,6 +666,7 @@
     const currentShape = resolveShapeForCurrentSelection();
     const selectedItems = getSelectedItemsForMessage();
     const generatedAt = formatDateTime(new Date());
+    const telegramMessage = buildTelegramMessage(currentShape, selectedItems, generatedAt);
     const shareText = buildSuccessShareText({ currentShape, selectedItems, generatedAt });
     let sheetPayload;
 
@@ -673,21 +674,213 @@
 
     try {
       sheetPayload = buildPayloadForSheets(selectedItems, currentShape);
+
       if (!state.canSyncSheets) {
-        throw new Error("Google Sheets indisponível nesta sessão.");
+        const telegramResult = await Promise.resolve()
+          .then(() => sendToTelegram(telegramMessage, currentShape.baseChatId))
+          .then(
+            (value) => ({ status: "fulfilled", value }),
+            (reason) => ({ status: "rejected", reason })
+          );
+
+        const telegramOk = telegramResult.status === "fulfilled";
+        if (telegramOk) {
+          const successPayload = {
+            mode: "success",
+            title: "Pedido enviado com sucesso",
+            fileName: `requisicao-estoque-${generatedAt.date.replace(/\//g, "-")}.txt`,
+            fileText: shareText,
+            currentShape,
+            selectedItems,
+            generatedAt,
+            sheetPayload,
+            summary: {
+              funcionario: currentShape.technicianName,
+              base: currentShape.baseName,
+              totalItens: selectedItems.length,
+              totalQuantidade: selectedItems.reduce((acc, item) => acc + (Number(item.quantidade) || 0), 0),
+            },
+            autoDownloaded: false,
+          };
+
+          storeResultPayload(successPayload);
+          persistDraft(true);
+          window.location.replace(buildResultPageUrl("success"));
+          return;
+        }
+
+        const reportText = buildSupportReport(telegramResult.reason, {
+          stage: "enviar ao Telegram",
+          currentShape,
+          selectedItems,
+          generatedAt,
+          sheetPayload,
+          stack: telegramResult.reason?.stack,
+        });
+
+        const errorPayload = {
+          mode: "error",
+          title: "Ocorreu um erro ao enviar o pedido",
+          fileName: `erro-pedido-${generatedAt.date.replace(/\//g, "-")}.txt`,
+          fileText: reportText,
+          currentShape,
+          selectedItems,
+          generatedAt,
+          sheetPayload,
+          errorMessage: String(telegramResult.reason?.message || telegramResult.reason || "Falha ao enviar ao Telegram."),
+          errorStack: String(telegramResult.reason?.stack || "stack não disponível"),
+          summary: {
+            funcionario: currentShape.technicianName,
+            base: currentShape.baseName,
+            totalItens: selectedItems.length,
+            totalQuantidade: selectedItems.reduce((acc, item) => acc + (Number(item.quantidade) || 0), 0),
+          },
+          autoDownloaded: false,
+        };
+
+        storeResultPayload(errorPayload);
+        persistDraft();
+        window.location.assign(buildResultPageUrl("error"));
+        return;
       }
 
-      await sendToSheets(sheetPayload);
+      const [sheetResult, telegramResult] = await Promise.allSettled([
+        sendToSheets(sheetPayload),
+        sendToTelegram(telegramMessage, currentShape.baseChatId),
+      ]);
 
-      const successPayload = {
-        mode: "success",
-        title: "Pedido enviado com sucesso",
-        fileName: `requisicao-estoque-${generatedAt.date.replace(/\//g, "-")}.txt`,
-        fileText: shareText,
+      const sheetOk = sheetResult.status === "fulfilled";
+      const telegramOk = telegramResult.status === "fulfilled";
+
+      if (sheetOk && telegramOk) {
+        const successPayload = {
+          mode: "success",
+          title: "Pedido enviado com sucesso",
+          fileName: `requisicao-estoque-${generatedAt.date.replace(/\//g, "-")}.txt`,
+          fileText: shareText,
+          currentShape,
+          selectedItems,
+          generatedAt,
+          sheetPayload,
+          summary: {
+            funcionario: currentShape.technicianName,
+            base: currentShape.baseName,
+            totalItens: selectedItems.length,
+            totalQuantidade: selectedItems.reduce((acc, item) => acc + (Number(item.quantidade) || 0), 0),
+          },
+          autoDownloaded: false,
+        };
+
+        storeResultPayload(successPayload);
+        persistDraft(true);
+        window.location.replace(buildResultPageUrl("success"));
+        return;
+      }
+
+      if (!sheetOk && telegramOk) {
+        const reportText = buildSupportReport(sheetResult.reason, {
+          stage: "salvar pedido",
+          currentShape,
+          selectedItems,
+          generatedAt,
+          sheetPayload,
+          stack: sheetResult.reason?.stack,
+          telegramResult,
+        });
+
+        const errorPayload = {
+          mode: "error",
+          title: "Ocorreu um erro ao enviar o pedido",
+          fileName: `erro-pedido-${generatedAt.date.replace(/\//g, "-")}.txt`,
+          fileText: reportText,
+          currentShape,
+          selectedItems,
+          generatedAt,
+          sheetPayload,
+          errorMessage: String(sheetResult.reason?.message || sheetResult.reason || "Falha ao gravar nas planilhas."),
+          errorStack: String(sheetResult.reason?.stack || "stack não disponível"),
+          summary: {
+            funcionario: currentShape.technicianName,
+            base: currentShape.baseName,
+            totalItens: selectedItems.length,
+            totalQuantidade: selectedItems.reduce((acc, item) => acc + (Number(item.quantidade) || 0), 0),
+          },
+          autoDownloaded: false,
+        };
+
+        storeResultPayload(errorPayload);
+        persistDraft();
+        window.location.assign(buildResultPageUrl("error"));
+        return;
+      }
+
+      if (sheetOk && !telegramOk) {
+        const reportText = buildSupportReport(telegramResult.reason, {
+          stage: "enviar ao Telegram",
+          currentShape,
+          selectedItems,
+          generatedAt,
+          sheetPayload,
+          stack: telegramResult.reason?.stack,
+          sheetResult,
+        });
+
+        const errorPayload = {
+          mode: "error",
+          title: "Ocorreu um erro ao enviar o pedido",
+          fileName: `erro-pedido-${generatedAt.date.replace(/\//g, "-")}.txt`,
+          fileText: reportText,
+          currentShape,
+          selectedItems,
+          generatedAt,
+          sheetPayload,
+          errorMessage: String(telegramResult.reason?.message || telegramResult.reason || "Falha ao enviar ao Telegram."),
+          errorStack: String(telegramResult.reason?.stack || "stack não disponível"),
+          summary: {
+            funcionario: currentShape.technicianName,
+            base: currentShape.baseName,
+            totalItens: selectedItems.length,
+            totalQuantidade: selectedItems.reduce((acc, item) => acc + (Number(item.quantidade) || 0), 0),
+          },
+          autoDownloaded: false,
+        };
+
+        storeResultPayload(errorPayload);
+        persistDraft();
+        window.location.assign(buildResultPageUrl("error"));
+        return;
+      }
+
+      const reasons = [sheetResult, telegramResult]
+        .filter(Boolean)
+        .map((entry) => entry.reason?.message || "Erro desconhecido")
+        .join(" | ");
+
+      const reportText = buildSupportReport(new Error(reasons), {
+        stage: "salvar pedido",
         currentShape,
         selectedItems,
         generatedAt,
         sheetPayload,
+        stack: [sheetResult, telegramResult]
+          .filter(Boolean)
+          .map((entry) => entry.reason?.stack || "stack não disponível")
+          .join("\n\n"),
+        sheetResult,
+        telegramResult,
+      });
+
+      const errorPayload = {
+        mode: "error",
+        title: "Ocorreu um erro ao enviar o pedido",
+        fileName: `erro-pedido-${generatedAt.date.replace(/\//g, "-")}.txt`,
+        fileText: reportText,
+        currentShape,
+        selectedItems,
+        generatedAt,
+        sheetPayload,
+        errorMessage: `Não foi possível concluir o pedido. ${reasons}`,
+        errorStack: "stack não disponível",
         summary: {
           funcionario: currentShape.technicianName,
           base: currentShape.baseName,
@@ -697,14 +890,14 @@
         autoDownloaded: false,
       };
 
-      storeResultPayload(successPayload);
-      persistDraft(true);
-      window.location.replace(buildResultPageUrl("success"));
+      storeResultPayload(errorPayload);
+      persistDraft();
+      window.location.assign(buildResultPageUrl("error"));
     } catch (error) {
       console.error(error);
 
       const reportText = buildSupportReport(error, {
-        stage: "salvar pedido",
+        stage: "enviar pedido",
         currentShape,
         selectedItems,
         generatedAt,

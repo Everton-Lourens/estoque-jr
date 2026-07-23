@@ -16,6 +16,13 @@ Ao salvar com sucesso, o frontend deve redirecionar para `frontend/sucess/index.
 - O retorno do usuário para a página principal não deve restaurar itens já enviados.
 
 ### Regra
+A submissão bem-sucedida deve enviar os dados para Google Sheets e Telegram em paralelo.
+
+### Aplicação
+- O fluxo usa `Promise.allSettled([sendToSheets(...), sendToTelegram(...)])` para registrar ambos os destinos.
+- Falha em qualquer um dos destinos deve ser tratada como erro de envio.
+
+### Regra
 Ao ocorrer erro de envio, o frontend deve redirecionar para `frontend/sucess/index.html?mode=error`.
 
 ### Aplicação

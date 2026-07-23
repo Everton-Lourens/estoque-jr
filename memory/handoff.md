@@ -5,7 +5,7 @@ Estado atual:
 - O nome do técnico saiu de campo de texto e virou um `<select>` alimentado por `funcionario` do Sheets.
 - A lista de itens não usa mais catálogo fixo no JS: os cards de checkbox são renderizados a partir de `bootstrap.itens`.
 - A configuração operacional foi separada em `config.js`.
-- O submit agora bloqueia a interface com overlay escuro e leva o usuário para `frontend/sucess/index.html` em modo de sucesso ou erro.
+- O submit agora bloqueia a interface com overlay escuro, envia para Google Sheets e Telegram em paralelo e leva o usuário para `frontend/sucess/index.html` em modo de sucesso ou erro.
 - Em sucesso, o `draft` é limpo antes do redirecionamento; em erro, o rascunho fica preservado para nova tentativa.
 - A página `frontend/sucess/` é responsável por baixar automaticamente o TXT e por enviar a cópia para WhatsApp/compartilhamento.
 

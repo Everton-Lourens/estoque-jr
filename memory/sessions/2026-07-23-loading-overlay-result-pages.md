@@ -2,7 +2,7 @@
 
 ## O que foi alterado
 - O formulário recebeu overlay bloqueante para carregamento inicial e envio.
-- O submit agora redireciona para `frontend/sucess/index.html` em modo de sucesso ou erro.
+- O submit agora redireciona para `frontend/sucess/index.html` em modo de sucesso ou erro e volta a enviar para Sheets + Telegram em paralelo.
 - Foi criada a página `frontend/sucess/` com `index.html`, `style.css` e `script.js`.
 - Em sucesso, o arquivo TXT é baixado automaticamente e a cópia pode ser enviada via WhatsApp/compartilhamento.
 - Em erro, o relatório técnico é baixado automaticamente e o suporte padrão recebe o número `71981768164`.
