@@ -1,74 +1,204 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>JR TELECOM CAMAÇARI | Solicitação de Materiais</title>
-  <meta name="description" content="Solicitação de materiais da base JR TELECOM CAMAÇARI." />
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <main class="page">
-    <section class="hero">
-<div class="brand">
-  <div class="brand-mark">
-    <img src="logo-jr.jpg" alt="JR Telecom" />
-  </div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b57d0" />
+    <title>Pedido de Almoxarifado</title>
+    <meta
+      name="description"
+      content="Portal estático para pedidos de almoxarifado integrado ao Google Sheets via Apps Script."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="bg-orb orb-a"></div>
+    <div class="bg-orb orb-b"></div>
 
-  <div class="brand-copy">
-    <p class="eyebrow">JR TELECOM</p>
-    <h1>CAMAÇARI</h1>
-    <p>Selecione somente os materiais necessários.</p>
-  </div>
-</div>
+    <main class="shell">
+      <header class="hero">
+        <div class="hero__copy">
+          <span class="pill" id="appPill">Conectando ao banco</span>
+          <h1>Pedido de Almoxarifado</h1>
+          <p class="hero__lead">
+            Selecione o funcionário, adicione os itens e envie o pedido para o Google Sheets.
+          </p>
 
-      
-
-      <aside class="hero-card">
-  <span class="hero-tag">Dias de solicitação de materiais:</span>
-  <strong>Terça, Quinta e Sábado.</strong>
-        <div style="display: flex; gap: 5px;">
-  <p style="position: relative; top: -3px;">Hoje é:</p>
-  <p id="status-dia"></p>
+          <div class="hero__stats" id="topStats">
+            <article class="stat-card">
+              <strong id="statFuncionarios">0</strong>
+              <span>Funcionários ativos</span>
+            </article>
+            <article class="stat-card">
+              <strong id="statItens">0</strong>
+              <span>Itens ativos</span>
+            </article>
+            <article class="stat-card">
+              <strong id="statItensSelecionados">0</strong>
+              <span>Itens no pedido</span>
+            </article>
+          </div>
         </div>
-      </aside>
-    </section>
 
-    <section class="card">
-      <header class="section-head">
-        <p>O nome do técnico é obrigatório.</p>
+        <aside class="hero__panel">
+          <div class="panel-card">
+            <div class="panel-card__title">
+              <span>Base de dados</span>
+              <strong id="dbStatus">Carregando</strong>
+            </div>
+            <p id="dbDescription">
+              Buscando funcionário, itens e listas auxiliares no Apps Script.
+            </p>
+          </div>
+
+          <div class="panel-card panel-card--accent">
+            <div class="panel-card__title">
+              <span>Data padrão</span>
+              <strong id="defaultDate">--</strong>
+            </div>
+            <p>
+              O pedido já nasce com a data de hoje e pronto para o envio.
+            </p>
+          </div>
+        </aside>
       </header>
 
-      <form id="requestForm" novalidate>
-        <div class="grid">
-          <div class="field full-width">
-            <label for="technicianName">Nome do técnico <span>*</span></label>
-            <input type="text" id="technicianName" name="technicianName" placeholder="Digite o nome do técnico" autocomplete="name" required />
-          </div>
-        </div>
-
-        <section class="materials">
-          <div class="materials-head">
+      <section class="grid">
+        <section class="card">
+          <div class="card__head">
             <div>
-              <h2>Materiais solicitados</h2>
+              <span class="card__eyebrow">1. Cabeçalho</span>
+              <h2>Dados do pedido</h2>
             </div>
-            <button type="button" class="ghost-btn" id="clearSelectionBtn">Limpar seleção</button>
+            <span class="badge badge--soft">Obrigatório</span>
           </div>
 
-          <div id="materialsList" class="materials-list" aria-live="polite"></div>
+          <form id="pedidoForm" autocomplete="off">
+            <div class="form-grid">
+              <label class="field">
+                <span>Funcionário</span>
+                <select id="id_funcionario" name="id_funcionario" required></select>
+              </label>
+
+              <label class="field">
+                <span>Data do pedido</span>
+                <input id="data_pedido" name="data_pedido" type="date" required />
+              </label>
+
+              <label class="field">
+                <span>Prioridade</span>
+                <select id="prioridade" name="prioridade"></select>
+              </label>
+
+              <label class="field field--full">
+                <span>Observação</span>
+                <textarea
+                  id="observacao"
+                  name="observacao"
+                  rows="3"
+                  placeholder="Detalhes adicionais sobre o pedido"
+                ></textarea>
+              </label>
+            </div>
+          </form>
         </section>
 
-        <div id="feedback" class="feedback" role="status" aria-live="polite"></div>
+        <section class="card">
+          <div class="card__head">
+            <div>
+              <span class="card__eyebrow">2. Itens</span>
+              <h2>Monte os itens do pedido</h2>
+            </div>
+            <button class="btn btn--ghost" id="addItemBtn" type="button">+ Adicionar item</button>
+          </div>
 
-        <div class="actions">
-          <button type="submit" class="primary-btn">Enviar</button>
-          <p class="actions-note">Dias de recebimento do material:<br>
-            Segunda, Quarta e Sexta.</p>
+          <div id="itemsList" class="items-list"></div>
+
+          <div class="empty-state" id="itemsEmpty">
+            Nenhum item adicionado ainda. Use o botão acima para montar o pedido.
+          </div>
+        </section>
+
+        <aside class="card card--sticky">
+          <div class="card__head">
+            <div>
+              <span class="card__eyebrow">3. Resumo</span>
+              <h2>Pedido atual</h2>
+            </div>
+            <span class="badge" id="pedidoStatusBadge">Aberto</span>
+          </div>
+
+          <div class="summary">
+            <div class="summary__row">
+              <span>Itens diferentes</span>
+              <strong id="summaryItens">0</strong>
+            </div>
+            <div class="summary__row">
+              <span>Quantidade total</span>
+              <strong id="summaryQuantidade">0</strong>
+            </div>
+            <div class="summary__row">
+              <span>Funcionário</span>
+              <strong id="summaryFuncionario">--</strong>
+            </div>
+            <div class="summary__row">
+              <span>Prioridade</span>
+              <strong id="summaryPrioridade">Normal</strong>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn btn--primary" id="saveBtn" type="button">Enviar pedido</button>
+            <button class="btn btn--secondary" id="resetBtn" type="button">Limpar</button>
+          </div>
+
+          <div class="notice" id="statusBox">
+            Pronto para carregar os dados iniciais.
+          </div>
+
+          <details class="payload-box">
+            <summary>Prévia do payload</summary>
+            <pre id="payloadPreview">{}</pre>
+          </details>
+        </aside>
+      </section>
+    </main>
+
+    <template id="itemRowTemplate">
+      <article class="item-row">
+        <div class="item-row__top">
+          <label class="field">
+            <span>Item</span>
+            <select data-field="id_item" required></select>
+          </label>
+
+          <label class="field field--narrow">
+            <span>Qtd.</span>
+            <input data-field="quantidade" type="number" min="1" step="1" value="1" required />
+          </label>
+
+          <label class="field field--narrow">
+            <span>Status</span>
+            <select data-field="status_item"></select>
+          </label>
+
+          <button type="button" class="icon-btn" data-action="remove" aria-label="Remover item">×</button>
         </div>
-      </form>
-    </section>
-  </main>
 
-  <script src="script.js"></script>
-</body>
+        <label class="field">
+          <span>Observação</span>
+          <input data-field="observacao" type="text" placeholder="Opcional" />
+        </label>
+      </article>
+    </template>
+
+    <script src="./config.js"></script>
+    <script src="./app.js"></script>
+  </body>
 </html>
