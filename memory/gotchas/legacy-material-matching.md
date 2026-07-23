@@ -1,10 +1,10 @@
-# Armadilha de compatibilidade entre layout legado e planilha
+# Armadilha de bootstrap dinâmico sem catálogo fixo
 
 ## Problema
-O frontend antigo trabalha com nomes de materiais fixos no layout, mas o Apps Script grava pedidos com `id_item` e `id_funcionario`.
+Quando a aba `item` ou `funcionario` não retorna dados ativos, o frontend fica sem opções para montar o pedido.
 
 ## Causa
-Se o nome do material legado não encontrar correspondência no cadastro do Google Sheets, o pedido não consegue ser salvo nas planilhas.
+O frontend agora depende diretamente do bootstrap do Apps Script. Se a planilha estiver vazia, inativa ou com falha de leitura, os selects e os cards não recebem dados.
 
 ## Solução
-Manter os nomes do layout alinhados ao cadastro de itens da planilha e usar comparação normalizada de texto para resolver os IDs antes do envio.
+Garantir que as abas `funcionario` e `item` estejam ativas e corretamente preenchidas. Se o Apps Script cair, o frontend tenta cache local antes de abrir em modo offline sem itens.

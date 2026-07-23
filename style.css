@@ -505,3 +505,29 @@ input:focus-visible {
     height: 56px;
   }
 }
+
+
+/* Ajustes leves para o frontend dinâmico */
+#id_funcionario,
+#baseChatId {
+  text-transform: none;
+}
+
+#itemsEmpty {
+  line-height: 1.5;
+}
+
+.material-desc {
+  word-break: break-word;
+}
+
+
+.empty-state {
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px dashed rgba(141, 201, 255, 0.22);
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.02);
+  line-height: 1.5;
+}

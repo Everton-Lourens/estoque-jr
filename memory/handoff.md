@@ -1,15 +1,17 @@
 # Handoff
 
 Estado atual:
-- O frontend antigo é a interface principal para o funcionário.
-- O layout legado foi preservado.
-- A lógica agora lê bootstrap do Google Apps Script, tenta gravar o pedido em Google Sheets e continua enviando ao Telegram.
-- O backend não foi alterado.
+- O frontend público continua com o layout legado, mas agora carrega funcionários e itens a partir do bootstrap do Google Apps Script.
+- O nome do técnico saiu de campo de texto e virou um `<select>` alimentado por `funcionario` do Sheets.
+- A lista de itens não usa mais catálogo fixo no JS: os cards de checkbox são renderizados a partir de `bootstrap.itens`.
+- A configuração operacional foi separada em `config.js`.
+- O envio continua integrando Google Sheets e Telegram.
 
 Pontos de atenção:
-- O salvamento em planilha depende de o nome do técnico existir no cadastro de funcionários do Sheets.
-- Os materiais do layout legado precisam continuar compatíveis com os itens cadastrados na planilha para que o `id_item` seja resolvido corretamente.
-- Se o Apps Script não responder, o formulário ainda pode funcionar em modo Telegram-only, mas sem persistência nas planilhas.
+- Se o bootstrap vier vazio, a tela fica funcional, mas sem funcionários ou itens para selecionar.
+- O `id_funcionario` precisa existir no cadastro da planilha; não há mais conciliação por nome digitado.
+- O `id_item` de cada card vem diretamente do bootstrap, então o frontend depende da aba `item` estar ativa e preenchida.
+- O cache local do bootstrap e do rascunho no `localStorage` continuam sendo usados como fallback.
 
 Próximo passo provável:
-- Validar os nomes dos itens legados contra o cadastro real da planilha e ajustar apenas o que estiver fora de sincronia.
+- Validar os nomes exibidos dos itens e o comportamento do bootstrap com a planilha real em produção.

@@ -1,0 +1,22 @@
+window.ALMOXARIFADO_CONFIG = {
+  appName: "JR TELECOM CAMAÇARI | Solicitação de Materiais",
+  pageTitle: "JR TELECOM CAMAÇARI | Solicitação de Materiais",
+  appScriptUrl: "https://script.google.com/macros/s/AKfycbzrJreu7vjL6epONB49peaosFSHm34cDhxwy27-pTCc4-a0d33Cbc_5FWCI6dahLzQUJw/exec",
+  defaultStatusPedido: "Aberto",
+  defaultStatusItem: "Pendente",
+  defaultPriority: "Normal",
+  baseName: "CAMAÇARI",
+  telegramBotToken: "8675551330:AAH5G9TcjqoI-rjvCr-QBAlQ4Wsxkolu9hY",
+  telegramBases: [
+    { value: "-1003549071393", label: "Camaçari" },
+    { value: "-00000000000", label: "Juazeiro" },
+  ],
+  apiPaths: {
+    bootstrap: "?action=bootstrap",
+    health: "?action=health",
+    meta: "?action=meta",
+    createPedido: "?action=createPedido",
+    savePedido: "?action=savePedido",
+    lookup: "?action=lookup",
+  },
+};
