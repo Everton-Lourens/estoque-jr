@@ -1,18 +1,15 @@
 # Handoff
 
 Estado atual:
-- O frontend estático será publicado no GitHub Pages.
-- O backend continua sendo o Google Apps Script conectado ao Google Sheets.
-- A leitura inicial do site tenta JSONP primeiro para `action=bootstrap` e cai para `fetch()` como fallback de compatibilidade.
-- Se o Apps Script não responder, o frontend agora abre com um bootstrap local seedado a partir da estrutura da planilha, em vez de cair em uma tela vazia.
-- O envio do pedido tenta `fetch()` com JSON para `action=createPedido` primeiro e cai para um envio simplificado `no-cors` quando necessário; a ação agora é enviada com a capitalização canônica esperada pelo Apps Script.
-- O frontend já renderiza cabeçalho do pedido, itens dinâmicos e prévia do payload.
+- O frontend antigo é a interface principal para o funcionário.
+- O layout legado foi preservado.
+- A lógica agora lê bootstrap do Google Apps Script, tenta gravar o pedido em Google Sheets e continua enviando ao Telegram.
+- O backend não foi alterado.
 
 Pontos de atenção:
-- O `config.js` precisa ficar sincronizado com a URL publicada do Web App.
-- Se o bootstrap remoto falhar por CORS, publicação restrita ou indisponibilidade do Web App, o fallback local mantém a tela funcional com dados base.
-- O envio simplificado do pedido pode não expor a resposta do servidor no navegador; ele serve como rota de compatibilidade.
-- A UX foi otimizada para funcionar sem build step, usando HTML/CSS/JS puro.
+- O salvamento em planilha depende de o nome do técnico existir no cadastro de funcionários do Sheets.
+- Os materiais do layout legado precisam continuar compatíveis com os itens cadastrados na planilha para que o `id_item` seja resolvido corretamente.
+- Se o Apps Script não responder, o formulário ainda pode funcionar em modo Telegram-only, mas sem persistência nas planilhas.
 
 Próximo passo provável:
-- Ajustar a tela de listagem/edição de pedidos, caso seja necessário acompanhar pedidos já criados.
+- Validar os nomes dos itens legados contra o cadastro real da planilha e ajustar apenas o que estiver fora de sincronia.
