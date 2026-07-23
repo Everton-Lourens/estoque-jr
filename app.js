@@ -85,27 +85,24 @@
       throw new Error("appScriptUrl ausente em config.js");
     }
 
-    try {
-      return await apiGet({ action: "bootstrap" }, { timeoutMs: 12000 });
-    } catch (fetchErr) {
-      const fetchMessage = String(fetchErr?.message || fetchErr || "").toLowerCase();
-      const canTryJsonp =
-        /failed to fetch|networkerror|fetch failed|cors|blocked|timeout|tempo esgotado|parse-json|http\s+\d+/i.test(fetchMessage) ||
-        /não foi possível|nao foi possível|não foi possivel|nao foi possivel/i.test(fetchMessage);
+    const bootstrapUrl = buildJsonpUrl("bootstrap");
 
-      if (!canTryJsonp) {
-        throw fetchErr;
-      }
+    try {
+      return await jsonpRequest(bootstrapUrl, { timeoutMs: 12000 });
+    } catch (jsonpErr) {
+      console.warn("Bootstrap JSONP falhou, tentando fetch direto:", jsonpErr);
 
       try {
-        return await jsonpRequest(buildJsonpUrl("bootstrap"), { timeoutMs: 12000 });
-      } catch (jsonpErr) {
+        return await apiGet({ action: "bootstrap" }, { timeoutMs: 12000 });
+      } catch (fetchErr) {
         try {
           await apiGet({ action: "health" }, { timeoutMs: 6000 });
-          throw new Error(`O backend respondeu ao health check, mas o bootstrap falhou: ${fetchErr.message || jsonpErr.message}`);
+          throw new Error(
+            `O Apps Script respondeu ao health check, mas o bootstrap falhou. Verifique se a publicação do web app está aberta para leitura pública e se a URL em config.js aponta para a implantação ativa. JSONP: ${jsonpErr.message || jsonpErr} | Fetch: ${fetchErr.message || fetchErr}`
+          );
         } catch (healthErr) {
           throw new Error(
-            `Não foi possível carregar o bootstrap via fetch ou JSONP. Verifique o URL do Apps Script, a publicação do web app e a planilha vinculada. ${healthErr.message || jsonpErr.message || fetchErr.message}`
+            `Não foi possível carregar o bootstrap. Verifique o URL do Apps Script, a publicação do web app e a planilha vinculada. JSONP: ${jsonpErr.message || jsonpErr} | Fetch: ${fetchErr.message || fetchErr} | Health: ${healthErr.message || healthErr}`
           );
         }
       }
@@ -212,7 +209,7 @@
   }
 
   function buildJsonpUrl(action) {
-    return `${apiUrl({ action })}&callback=bootstrapCallback`;
+    return apiUrl({ action });
   }
 
   function jsonpRequest(url, options = {}) {

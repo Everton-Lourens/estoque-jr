@@ -1,10 +1,10 @@
-# Bootstrap híbrido com fetch e JSONP fallback
+# Bootstrap compatível com JSONP primeiro
 
 ## Decisão
-A carga inicial do site estático deve priorizar `fetch()` em `action=bootstrap` e manter JSONP como fallback de compatibilidade.
+A carga inicial do site estático deve priorizar JSONP para o `action=bootstrap` e manter `fetch()` como fallback de compatibilidade.
 
 ## Motivo
-Alguns ambientes permitem a leitura direta via `fetch()` e outros ainda precisam do fallback JSONP para atravessar limitações de origem cruzada.
+Em GitHub Pages, o carregamento por `<script>` tende a ser mais resiliente com Apps Script publicado como web app, enquanto `fetch()` continua útil como rota secundária quando o navegador ou a política de origem cruzada permitem.
 
 ## Complemento
 A chamada de bootstrap deve ter timeout e o payload pode trazer `diagnostics.issues` sem quebrar a tela.

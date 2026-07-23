@@ -5,7 +5,7 @@
 2. Confirme o `appScriptUrl` em `config.js`.
 3. Habilite o GitHub Pages na branch desejada.
 4. Abra a URL publicada e valide se o bootstrap carrega funcionários e itens.
-5. Se a leitura direta falhar, confira se o fallback JSONP continua retornando o bootstrap.
+5. Se a leitura direta falhar, confira se o JSONP continua retornando o bootstrap.
 6. Faça um envio de teste e confira a gravação na planilha.
 
 ## Resultado esperado
