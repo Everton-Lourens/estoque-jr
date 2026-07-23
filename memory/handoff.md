@@ -5,7 +5,7 @@ Estado atual:
 - O backend continua sendo o Google Apps Script conectado ao Google Sheets.
 - A leitura inicial do site tenta JSONP primeiro para `action=bootstrap` e cai para `fetch()` como fallback de compatibilidade.
 - Se o Apps Script não responder, o frontend agora abre com um bootstrap local seedado a partir da estrutura da planilha, em vez de cair em uma tela vazia.
-- O envio do pedido tenta `fetch()` com JSON para `action=createPedido` primeiro e cai para um envio simplificado `no-cors` quando necessário.
+- O envio do pedido tenta `fetch()` com JSON para `action=createPedido` primeiro e cai para um envio simplificado `no-cors` quando necessário; a ação agora é enviada com a capitalização canônica esperada pelo Apps Script.
 - O frontend já renderiza cabeçalho do pedido, itens dinâmicos e prévia do payload.
 
 Pontos de atenção:

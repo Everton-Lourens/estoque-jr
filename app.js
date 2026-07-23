@@ -228,7 +228,7 @@
 
     Object.entries(params).forEach(([key, value]) => {
       if (value === undefined || value === null) return;
-      const normalizedValue = key === "action" && typeof value === "string" ? value.trim().toLowerCase() : value;
+      const normalizedValue = key === "action" && typeof value === "string" ? value.trim() : value;
       url.searchParams.set(key, String(normalizedValue));
       if (key === "action") {
         url.searchParams.set("acao", String(normalizedValue));
@@ -285,7 +285,7 @@
   }
 
   async function apiPost(action, payload = {}, { timeoutMs = 30000 } = {}) {
-    const actionName = String(action || "").trim().toLowerCase();
+    const actionName = String(action || "").trim();
     if (!actionName) {
       throw new Error("Ação de envio não informada.");
     }

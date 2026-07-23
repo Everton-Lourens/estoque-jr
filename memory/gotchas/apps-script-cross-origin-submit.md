@@ -11,3 +11,9 @@ Priorizar JSONP para a leitura inicial (`action=bootstrap`), manter `fetch()` co
 
 ## Gotcha adicional
 O bootstrap pode carregar parcialmente com alertas de diagnóstico; isso não é erro fatal se o frontend conseguir montar o formulário.
+
+## Armadilha adicional
+A capitalização da ação do POST precisa permanecer como `createPedido`; converter para minúsculas pode quebrar a compatibilidade com o handler do Apps Script.
+
+## Solução adicional
+Enviar a ação no formato canônico e manter o backend tolerante a aliases.
