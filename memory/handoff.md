@@ -3,12 +3,14 @@
 Estado atual:
 - O frontend estático será publicado no GitHub Pages.
 - O backend continua sendo o Google Apps Script conectado ao Google Sheets.
-- A leitura inicial do site usa bootstrap por JSONP.
+- A leitura inicial do site tenta `fetch()` para `action=bootstrap` primeiro e cai para JSONP quando a origem cruzada bloqueia o carregamento.
+- O envio do pedido tenta `fetch()` com JSON para `action=createPedido` primeiro e cai para um envio simplificado `no-cors` quando necessário.
 - O frontend já renderiza cabeçalho do pedido, itens dinâmicos e prévia do payload.
 
 Pontos de atenção:
-- O envio do pedido é feito como POST simplificado para o web app do Apps Script.
-- Se o deployment mudar, `config.js` precisa ser atualizado.
+- O `config.js` precisa ficar sincronizado com a URL publicada do Web App.
+- Se o `fetch()` falhar por CORS ou rede, o fallback por JSONP continua disponível para bootstrap.
+- O envio simplificado do pedido pode não expor a resposta do servidor no navegador; ele serve como rota de compatibilidade.
 - A UX foi otimizada para funcionar sem build step, usando HTML/CSS/JS puro.
 
 Próximo passo provável:

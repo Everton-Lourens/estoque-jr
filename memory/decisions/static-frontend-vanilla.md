@@ -6,5 +6,8 @@ O site para GitHub Pages será feito em HTML, CSS e JavaScript puro, sem framewo
 ## Motivo
 Isso reduz complexidade, facilita deploy estático e simplifica a integração com Apps Script e Google Sheets.
 
+## Complemento
+A integração precisa continuar funcionando mesmo com bootstrap parcial e com fallback de compatibilidade para leitura e envio.
+
 ## Data
 2026-07-22

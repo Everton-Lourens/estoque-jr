@@ -29,12 +29,20 @@
         renderBootstrap(data);
         restoreDraft();
         syncSummary();
-        setStatus("Dados carregados. Monte o pedido e envie quando estiver pronto.", "success");
+
+        const issues = Array.isArray(data.diagnostics?.issues) ? data.diagnostics.issues.filter(Boolean) : [];
+        if (issues.length) {
+          setStatus(`Bootstrap carregado com alertas: ${issues.join(" • ")}`, "loading");
+        } else {
+          setStatus("Dados carregados. Monte o pedido e envie quando estiver pronto.", "success");
+        }
       })
       .catch((err) => {
         console.error(err);
         setStatus(
-          "Não foi possível carregar o bootstrap. Verifique o URL do Apps Script e a publicação do web app.",
+          err && err.message
+            ? `Não foi possível carregar o bootstrap: ${err.message}`
+            : "Não foi possível carregar o bootstrap. Verifique o URL do Apps Script e a publicação do web app.",
           "error"
         );
       });
@@ -72,30 +80,174 @@
     refs.itemsList.addEventListener("click", handleItemClick);
   }
 
-  function loadBootstrap() {
+  async function loadBootstrap() {
     if (!CONFIG.appScriptUrl) {
-      return Promise.reject(new Error("appScriptUrl ausente em config.js"));
+      throw new Error("appScriptUrl ausente em config.js");
     }
 
-    return jsonpRequest(`${CONFIG.appScriptUrl}${CONFIG.apiPaths.bootstrap}&callback=bootstrapCallback`);
+    try {
+      return await apiGet({ action: "bootstrap" }, { timeoutMs: 12000 });
+    } catch (fetchErr) {
+      const fetchMessage = String(fetchErr?.message || fetchErr || "").toLowerCase();
+      const canTryJsonp =
+        /failed to fetch|networkerror|fetch failed|cors|blocked|timeout|tempo esgotado|parse-json|http\s+\d+/i.test(fetchMessage) ||
+        /não foi possível|nao foi possível|não foi possivel|nao foi possivel/i.test(fetchMessage);
+
+      if (!canTryJsonp) {
+        throw fetchErr;
+      }
+
+      try {
+        return await jsonpRequest(buildJsonpUrl("bootstrap"), { timeoutMs: 12000 });
+      } catch (jsonpErr) {
+        try {
+          await apiGet({ action: "health" }, { timeoutMs: 6000 });
+          throw new Error(`O backend respondeu ao health check, mas o bootstrap falhou: ${fetchErr.message || jsonpErr.message}`);
+        } catch (healthErr) {
+          throw new Error(
+            `Não foi possível carregar o bootstrap via fetch ou JSONP. Verifique o URL do Apps Script, a publicação do web app e a planilha vinculada. ${healthErr.message || jsonpErr.message || fetchErr.message}`
+          );
+        }
+      }
+    }
   }
 
-  function jsonpRequest(url) {
+  function apiUrl(params = {}) {
+    const url = new URL(CONFIG.appScriptUrl);
+
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      const normalizedValue = key === "action" && typeof value === "string" ? value.trim().toLowerCase() : value;
+      url.searchParams.set(key, String(normalizedValue));
+      if (key === "action") {
+        url.searchParams.set("acao", String(normalizedValue));
+      }
+    });
+
+    return url.toString();
+  }
+
+  async function parseJsonResponse(response) {
+    const text = await response.text();
+    let data;
+
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (err) {
+      throw new Error(text || `HTTP ${response.status}`);
+    }
+
+    if (!response.ok || data.ok === false) {
+      throw new Error(data.message || `HTTP ${response.status}`);
+    }
+
+    return Object.prototype.hasOwnProperty.call(data, "data") ? (data.data ?? {}) : data;
+  }
+
+  async function apiGet(params = {}, { timeoutMs = 30000 } = {}) {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), Math.max(5000, Number(timeoutMs) || 30000));
+
+    try {
+      const response = await fetch(apiUrl(params), {
+        method: "GET",
+        mode: "cors",
+        cache: "no-store",
+        signal: controller.signal,
+      });
+
+      return await parseJsonResponse(response);
+    } catch (err) {
+      if (err?.name === "AbortError") {
+        throw new Error("A requisição demorou demais. Verifique sua conexão e tente novamente.");
+      }
+
+      const message = String(err?.message || err || "");
+      if (/failed to fetch|networkerror|fetch failed|cors/i.test(message)) {
+        throw new Error(`Falha de comunicação com o Apps Script: ${message || "Failed to fetch"}`);
+      }
+
+      throw err;
+    } finally {
+      window.clearTimeout(timer);
+    }
+  }
+
+  async function apiPost(action, payload = {}, { timeoutMs = 30000 } = {}) {
+    const actionName = String(action || "").trim().toLowerCase();
+    if (!actionName) {
+      throw new Error("Ação de envio não informada.");
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), Math.max(5000, Number(timeoutMs) || 30000));
+
+    try {
+      const response = await fetch(apiUrl({ action: actionName }), {
+        method: "POST",
+        mode: "cors",
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json;charset=UTF-8",
+        },
+        body: JSON.stringify({ ...payload, action: actionName, acao: actionName }),
+        signal: controller.signal,
+      });
+
+      return await parseJsonResponse(response);
+    } catch (err) {
+      if (err?.name === "AbortError") {
+        throw new Error("O salvamento demorou demais. Verifique sua conexão e tente novamente.");
+      }
+
+      const message = String(err?.message || err || "");
+      if (/failed to fetch|networkerror|fetch failed|cors/i.test(message)) {
+        throw new Error(`Falha de comunicação com o Apps Script: ${message || "Failed to fetch"}`);
+      }
+
+      throw err;
+    } finally {
+      window.clearTimeout(timer);
+    }
+  }
+
+  function buildJsonpUrl(action) {
+    return `${apiUrl({ action })}&callback=bootstrapCallback`;
+  }
+
+  function jsonpRequest(url, options = {}) {
+    const timeoutMs = Number(options.timeoutMs || 10000);
     return new Promise((resolve, reject) => {
       const callbackName = `jsonp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const requestUrl = new URL(url);
+      requestUrl.searchParams.set("callback", callbackName);
+
+      let settled = false;
+      let timeoutId = null;
+
+      const finish = (fn, value) => {
+        if (settled) return;
+        settled = true;
+        if (timeoutId) window.clearTimeout(timeoutId);
+        cleanup();
+        fn(value);
+      };
 
       window[callbackName] = (payload) => {
-        cleanup();
-        resolve(unpackApiPayload(payload));
+        finish(resolve, unpackApiPayload(payload));
       };
 
       const script = document.createElement("script");
-      script.src = url.replace("bootstrapCallback", callbackName);
+      script.src = requestUrl.toString();
       script.async = true;
+      script.referrerPolicy = "no-referrer-when-downgrade";
       script.onerror = () => {
-        cleanup();
-        reject(new Error("Falha ao carregar JSONP"));
+        finish(reject, new Error(`Falha ao carregar JSONP em ${requestUrl.toString()}`));
       };
+
+      timeoutId = window.setTimeout(() => {
+        finish(reject, new Error(`Tempo esgotado ao aguardar resposta de ${requestUrl.toString()}`));
+      }, timeoutMs);
 
       function cleanup() {
         if (script.parentNode) script.parentNode.removeChild(script);
@@ -220,7 +372,7 @@
     renderPayloadPreview();
   }
 
-  function submitPedido() {
+  async function submitPedido() {
     const payload = buildPayload();
     const validation = validatePayload(payload);
     if (!validation.ok) {
@@ -228,29 +380,40 @@
       return;
     }
 
-    const endpoint = `${CONFIG.appScriptUrl}${CONFIG.apiPaths.createPedido}`;
     setStatus("Enviando pedido para o Google Sheets...", "loading");
-
     localStorage.setItem("almoxarifado:lastPayload", JSON.stringify(payload));
 
-    fetch(endpoint, {
+    try {
+      await apiPost("createPedido", payload, { timeoutMs: 15000 });
+      setStatus("Pedido enviado com sucesso e salvo no Google Sheets.", "success");
+      return;
+    } catch (err) {
+      console.warn("POST com fetch falhou, tentando envio simplificado:", err);
+    }
+
+    try {
+      await sendPedidoNoCors(payload);
+      setStatus(
+        "Pedido enviado para o Apps Script. O navegador pode não permitir ler a confirmação dessa etapa simplificada.",
+        "success"
+      );
+    } catch (err) {
+      console.error(err);
+      setStatus(`Falha ao enviar o pedido. ${err?.message || "Verifique a URL do Apps Script e as permissões de publicação."}`, "error");
+    }
+  }
+
+  function sendPedidoNoCors(payload) {
+    const endpoint = apiUrl({ action: "createPedido" });
+
+    return fetch(endpoint, {
       method: "POST",
       mode: "no-cors",
       headers: {
-        "Content-Type": "text/plain;charset=UTF-8"
+        "Content-Type": "text/plain;charset=UTF-8",
       },
-      body: JSON.stringify(payload)
-    })
-      .then(() => {
-        setStatus(
-          "Pedido enviado para o Apps Script. Como a integração usa envio cross-origin simplificado, a confirmação visual vem do lado do navegador.",
-          "success"
-        );
-      })
-      .catch((err) => {
-        console.error(err);
-        setStatus("Falha ao enviar o pedido. Verifique a URL do Apps Script e as permissões de publicação.", "error");
-      });
+      body: JSON.stringify(payload),
+    });
   }
 
   function buildPayload() {

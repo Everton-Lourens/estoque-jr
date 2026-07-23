@@ -7,4 +7,7 @@ O navegador pode não permitir ler a resposta do POST do web app do Apps Script 
 A integração do GitHub Pages com Apps Script costuma exigir cuidado com origem cruzada.
 
 ## Solução
-Usar o bootstrap em JSONP e tratar o envio do pedido como POST simplificado, mantendo o payload preparado no frontend.
+Priorizar `fetch()` para bootstrap e envio de pedido, mas manter fallback JSONP para leitura e envio simplificado `no-cors` quando a política do navegador bloquear a resposta.
+
+## Gotcha adicional
+O bootstrap pode carregar parcialmente com alertas de diagnóstico; isso não é erro fatal se o frontend conseguir montar o formulário.
