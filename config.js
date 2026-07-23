@@ -7,6 +7,8 @@ window.ALMOXARIFADO_CONFIG = {
   defaultPriority: "Normal",
   stockMinimumMultiplierLimit: 2,
   baseName: "CAMAÇARI",
+  successWhatsAppNumber: "",
+  supportWhatsAppNumber: "71981768164",
   telegramBotToken: "8675551330:AAH5G9TcjqoI-rjvCr-QBAlQ4Wsxkolu9hY",
   telegramBases: [
     { value: "-1003549071393", label: "Camaçari" },

@@ -4,7 +4,10 @@
   const STORAGE_KEYS = {
     bootstrap: "almoxarifado:lastBootstrap",
     draft: "almoxarifado:draft",
+    result: "almoxarifado:result",
   };
+
+  const RESULT_PAGE_PATH = "sucess/index.html";
 
   const DEFAULT_BASES = [
     { value: "-1003549071393", label: "Camaçari" },
@@ -32,7 +35,8 @@
     bindEvents();
     renderBaseOptions();
     verificarDia();
-    setStatus("Carregando integração com Google Sheets...", "info");
+    setLoadingOverlay(true, "Carregando Dados");
+    setStatus("Carregando dados...", "info");
 
     loadBootstrap()
       .then((data) => {
@@ -44,7 +48,7 @@
         if (issues.length) {
           setStatus(`Google Sheets conectado com alertas: ${issues.join(" • ")}`, "info");
         } else {
-          setStatus("Google Sheets conectado. Os funcionários e itens foram carregados com sucesso.", "success");
+          setStatus("Dados carregados com sucesso.", "success");
         }
       })
       .catch((error) => {
@@ -60,6 +64,9 @@
         const offline = buildOfflineBootstrap(error);
         applyBootstrap(offline, { source: "offline" });
         setStatus("Google Sheets indisponível. O formulário abriu em modo local, sem itens carregados.", "info");
+      })
+      .finally(() => {
+        setLoadingOverlay(false);
       });
   }
 
@@ -84,6 +91,8 @@
     refs.materialsList = document.getElementById("materialsList");
     refs.clearSelectionBtn = document.getElementById("clearSelectionBtn");
     refs.statusDia = document.getElementById("status-dia");
+    refs.loadingOverlay = document.getElementById("loadingOverlay");
+    refs.loadingOverlayText = document.getElementById("loadingOverlayText");
     refs.saveButton = refs.requestForm ? refs.requestForm.querySelector('button[type="submit"]') : null;
     refs.resetButton = null;
   }
@@ -657,63 +666,82 @@
     const currentShape = resolveShapeForCurrentSelection();
     const selectedItems = getSelectedItemsForMessage();
     const generatedAt = formatDateTime(new Date());
-    const telegramMessage = buildTelegramMessage(currentShape, selectedItems, generatedAt);
-
+    const shareText = buildSuccessShareText({ currentShape, selectedItems, generatedAt });
     let sheetPayload;
+
+    setLoadingOverlay(true, "Enviando Pedido");
+
     try {
       sheetPayload = buildPayloadForSheets(selectedItems, currentShape);
+      if (!state.canSyncSheets) {
+        throw new Error("Google Sheets indisponível nesta sessão.");
+      }
+
+      await sendToSheets(sheetPayload);
+
+      const successPayload = {
+        mode: "success",
+        title: "Pedido enviado com sucesso",
+        fileName: `requisicao-estoque-${generatedAt.date.replace(/\//g, "-")}.txt`,
+        fileText: shareText,
+        currentShape,
+        selectedItems,
+        generatedAt,
+        sheetPayload,
+        summary: {
+          funcionario: currentShape.technicianName,
+          base: currentShape.baseName,
+          totalItens: selectedItems.length,
+          totalQuantidade: selectedItems.reduce((acc, item) => acc + (Number(item.quantidade) || 0), 0),
+        },
+        autoDownloaded: false,
+      };
+
+      storeResultPayload(successPayload);
+      persistDraft(true);
+      window.location.replace(buildResultPageUrl("success"));
     } catch (error) {
       console.error(error);
-      setStatus(error.message, "error");
-      return;
+
+      const reportText = buildSupportReport(error, {
+        stage: "salvar pedido",
+        currentShape,
+        selectedItems,
+        generatedAt,
+        sheetPayload,
+        stack: error?.stack,
+      });
+
+      const errorPayload = {
+        mode: "error",
+        title: "Ocorreu um erro ao enviar o pedido",
+        fileName: `erro-pedido-${generatedAt.date.replace(/\//g, "-")}.txt`,
+        fileText: reportText,
+        currentShape,
+        selectedItems,
+        generatedAt,
+        sheetPayload,
+        errorMessage: String(error?.message || error || "Erro desconhecido"),
+        errorStack: String(error?.stack || "stack não disponível"),
+        summary: {
+          funcionario: currentShape.technicianName,
+          base: currentShape.baseName,
+          totalItens: selectedItems.length,
+          totalQuantidade: selectedItems.reduce((acc, item) => acc + (Number(item.quantidade) || 0), 0),
+        },
+        autoDownloaded: false,
+      };
+
+      storeResultPayload(errorPayload);
+      persistDraft();
+      window.location.assign(buildResultPageUrl("error"));
+    } finally {
+      setLoadingOverlay(false);
     }
-
-    if (!state.canSyncSheets) {
-      try {
-        await sendToTelegram(telegramMessage, currentShape.baseChatId);
-        downloadTXT(telegramMessage);
-        setStatus("Pedido enviado ao Telegram. O Google Sheets não estava disponível nesta sessão.", "info");
-        return;
-      } catch (error) {
-        console.error(error);
-        setStatus(error.message, "error");
-        return;
-      }
-    }
-
-    const [sheetResult, telegramResult] = await Promise.allSettled([
-      sendToSheets(sheetPayload),
-      sendToTelegram(telegramMessage, currentShape.baseChatId),
-    ]);
-
-    const sheetOk = sheetResult.status === "fulfilled";
-    const telegramOk = telegramResult.status === "fulfilled";
-
-    if (sheetOk && telegramOk) {
-      downloadTXT(telegramMessage);
-      setStatus("Pedido salvo no Google Sheets e enviado ao Telegram com sucesso.", "success");
-      return;
-    }
-
-    if (!sheetOk && telegramOk) {
-      setStatus(`Pedido enviado ao Telegram, mas não foi salvo no Google Sheets. ${sheetResult.reason?.message || "Falha ao gravar nas planilhas."}`, "error");
-      return;
-    }
-
-    if (sheetOk && !telegramOk) {
-      setStatus(`Pedido salvo no Google Sheets, mas não foi enviado ao Telegram. ${telegramResult.reason?.message || "Falha ao enviar ao Telegram."}`, "error");
-      return;
-    }
-
-    const reasons = [sheetResult, telegramResult]
-      .filter(Boolean)
-      .map((entry) => entry.reason?.message || "Erro desconhecido")
-      .join(" | ");
-
-    setStatus(`Não foi possível concluir o pedido. ${reasons}`, "error");
   }
 
   function resolveShapeForCurrentSelection() {
+
     const technicianSelect = refs.technicianSelect;
     const baseSelect = refs.baseChatId;
     const tecnicoId = technicianSelect?.value || "";
@@ -1142,10 +1170,124 @@
     refs.feedback.textContent = "";
   }
 
+  function setLoadingOverlay(visible, message = "Carregando Dados") {
+    if (refs.loadingOverlay) {
+      refs.loadingOverlay.hidden = !visible;
+    }
+    if (refs.loadingOverlayText && message) {
+      refs.loadingOverlayText.textContent = message;
+    }
+
+    document.body.classList.toggle("loading-locked", Boolean(visible));
+    refs.requestForm?.setAttribute("aria-busy", visible ? "true" : "false");
+
+    refs.requestForm?.querySelectorAll("input, select, textarea, button").forEach((element) => {
+      if ("disabled" in element) {
+        element.disabled = Boolean(visible);
+      }
+    });
+  }
+
   function setStatus(message, type = "info") {
     if (!refs.feedback) return;
     refs.feedback.className = `feedback show ${type}`;
     refs.feedback.textContent = message;
+  }
+
+  function normalizeWhatsAppNumber(value) {
+    const digits = String(value || "").replace(/\D+/g, "");
+    if (digits.length === 11) return digits;
+    return "";
+  }
+
+  function buildResultPageUrl(mode = "success") {
+    const url = new URL(RESULT_PAGE_PATH, window.location.href);
+    url.searchParams.set("mode", mode);
+    return url.toString();
+  }
+
+  function storeResultPayload(payload) {
+    try {
+      sessionStorage.setItem(STORAGE_KEYS.result, JSON.stringify(payload));
+    } catch (error) {
+      console.warn("Não foi possível salvar o resultado da requisição:", error);
+    }
+  }
+
+  function readResultPayload() {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEYS.result);
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch (error) {
+      console.warn("Não foi possível ler o resultado da requisição:", error);
+      return null;
+    }
+  }
+
+  function createTextDownload(content, filename) {
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  function buildSupportReport(error, context = {}) {
+    const lines = [
+      "RELATÓRIO DE ERRO - ALMOXARIFADO",
+      `Data/Hora: ${new Date().toLocaleString("pt-BR")}`,
+      `Mensagem: ${String(error?.message || error || "Erro desconhecido")}`,
+      `Etapa: ${context.stage || "não informada"}`,
+      "",
+      "DETALHES TÉCNICOS",
+      `Stack: ${String(error?.stack || context.stack || "stack não disponível")}`,
+      "",
+      "DADOS DA TENTATIVA",
+      JSON.stringify({
+        funcionario: context.currentShape?.technicianName || "",
+        base: context.currentShape?.baseName || "",
+        totalItens: Array.isArray(context.selectedItems) ? context.selectedItems.length : 0,
+        totalQuantidade: Array.isArray(context.selectedItems)
+          ? context.selectedItems.reduce((acc, item) => acc + (Number(item.quantidade) || 0), 0)
+          : 0,
+        payload: context.sheetPayload || null,
+      }, null, 2),
+    ];
+
+    return lines.join("\n");
+  }
+
+  function buildSuccessShareText(context = {}) {
+    const lines = [
+      "REQUISIÇÃO DE MATERIAIS ENVIADA COM SUCESSO",
+      `Funcionário: ${context.currentShape?.technicianName || ""}`,
+      `Base: ${context.currentShape?.baseName || ""}`,
+      `Data: ${context.generatedAt?.date || ""}`,
+      `Hora: ${context.generatedAt?.time || ""}`,
+      "",
+      "Itens:",
+      ...(Array.isArray(context.selectedItems)
+        ? context.selectedItems.map((item) => `- ${item.label || item.id_item}: ${item.quantidade}${item.unidade ? ` ${item.unidade}` : ""}`)
+        : []),
+    ];
+
+    return lines.join("\n");
+  }
+
+  function getDefaultSupportNumber() {
+    return normalizeWhatsAppNumber(CONFIG.supportWhatsAppNumber || "71981768164");
+  }
+
+  function getSuccessForwardNumber() {
+    return normalizeWhatsAppNumber(CONFIG.successWhatsAppNumber || "");
   }
 
   function isCommunicationError(error) {

@@ -531,3 +531,57 @@ input:focus-visible {
   background: rgba(255, 255, 255, 0.02);
   line-height: 1.5;
 }
+
+
+body.loading-locked {
+  overflow: hidden;
+}
+
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.76);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.loading-overlay[hidden] {
+  display: none !important;
+}
+
+.loading-panel {
+  display: grid;
+  place-items: center;
+  gap: 14px;
+  padding: 28px 30px;
+  min-width: min(86vw, 320px);
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(7, 14, 24, 0.92);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
+  text-align: center;
+}
+
+.loading-panel p {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.loading-spinner {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 5px solid rgba(255,255,255,0.14);
+  border-top-color: var(--accent);
+  animation: loading-spin 0.9s linear infinite;
+}
+
+@keyframes loading-spin {
+  to { transform: rotate(360deg); }
+}
+
