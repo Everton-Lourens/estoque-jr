@@ -1,0 +1,17 @@
+{
+  "name": "almoxerifado-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Frontend estático do Almoxerifado servido localmente via Node sem alterar o deploy no GitHub Pages.",
+  "scripts": {
+    "start": "serve -l 3000 .",
+    "dev": "serve -l 3000 .",
+    "preview": "serve -l 4173 ."
+  },
+  "dependencies": {
+    "serve": "^14.2.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

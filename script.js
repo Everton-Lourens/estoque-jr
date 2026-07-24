@@ -105,7 +105,6 @@
     refs.clearSelectionBtn?.addEventListener("click", () => {
       clearSelection();
       persistDraft();
-      renderPayloadPreview();
       setStatus("Seleção de itens limpa.", "info");
     });
 
@@ -386,19 +385,28 @@
     return article;
   }
 
+  function getMaterialTabSourceValue(item) {
+    const candidates = [
+      item?.observacao,
+      item?.observation,
+      item?.obs,
+      item?.observacoes,
+      item?.aba,
+      item?.categoria,
+      item?.tipo_item,
+      item?.tipo,
+      item?.grupo,
+      item?.setor,
+    ];
+
+    return candidates.find((value) => String(value ?? "").trim()) ?? "";
+  }
+
   function getMaterialTabKey(item) {
-    const observation = String(
-      item?.observacao ??
-      item?.observation ??
-      item?.obs ??
-      item?.observacoes ??
-      ""
-    ).trim();
+    const normalized = normalizeForMatch(getMaterialTabSourceValue(item));
 
-    const normalized = normalizeForMatch(observation);
-
-    if (normalized.includes("estrutura")) return "estrutura";
-    if (normalized.includes("instalador")) return "instalador";
+    if (normalized.includes("estrutura") || normalized.includes("estrut")) return "estrutura";
+    if (normalized.includes("instalador") || normalized.includes("instal")) return "instalador";
 
     return "instalador";
   }
@@ -435,13 +443,14 @@
     if (previousTab === normalizedTab) return;
 
     if (shouldClearSelection) {
-      clearSelection();
+      clearSelection({ silent: true });
     }
 
     state.activeTab = normalizedTab;
     updateMaterialTabButtons();
     renderMaterials();
     syncSummary();
+    updateItemCounters();
     renderPayloadPreview();
     persistDraft();
     setStatus(`Aba ${getMaterialTabLabel(normalizedTab)} selecionada. As escolhas anteriores foram limpas.`, "info");
@@ -650,7 +659,7 @@
       : `Nenhum item da aba ${activeLabel} foi carregado do Google Sheets nesta sessão.`;
   }
 
-  function clearSelection() {
+  function clearSelection({ silent = false } = {}) {
     refs.materialsList?.querySelectorAll(".material-item").forEach((card) => {
       const checkbox = card.querySelector(".material-check");
       const item = getItemForCard(card);
@@ -660,6 +669,12 @@
       const qtyWrap = card.querySelector(".qty-wrap");
       if (qtyWrap) qtyWrap.style.display = "none";
     });
+
+    if (!silent) {
+      syncSummary();
+      updateItemCounters();
+      renderPayloadPreview();
+    }
   }
 
   function buildPayload() {

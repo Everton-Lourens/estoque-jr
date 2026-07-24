@@ -71,8 +71,28 @@
           </div>
 
           <div class="materials-tabs" role="tablist" aria-label="Tipos de solicitação">
-            <button type="button" class="tab-btn active" data-material-tab="instalador" role="tab" aria-selected="true">Instalador</button>
-            <button type="button" class="tab-btn" data-material-tab="estrutura" role="tab" aria-selected="false">Estrutura</button>
+            <button
+              type="button"
+              class="tab-btn active"
+              id="tab-instalador"
+              data-material-tab="instalador"
+              role="tab"
+              aria-controls="materialsList"
+              aria-selected="true"
+            >
+              Instalador
+            </button>
+            <button
+              type="button"
+              class="tab-btn"
+              id="tab-estrutura"
+              data-material-tab="estrutura"
+              role="tab"
+              aria-controls="materialsList"
+              aria-selected="false"
+            >
+              Estrutura
+            </button>
           </div>
 
           <div id="materialsList" class="materials-list" aria-live="polite"></div>
