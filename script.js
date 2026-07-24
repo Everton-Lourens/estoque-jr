@@ -24,6 +24,7 @@
     ready: false,
     canSyncSheets: false,
     sheetLoadSource: "none",
+    activeTab: "instalador",
   };
 
   const refs = {};
@@ -35,7 +36,7 @@
     bindEvents();
     renderBaseOptions();
     verificarDia();
-    setLoadingOverlay(true, "Carregando Dados");
+    setLoadingOverlay(true, "Carregando dados...");
     setStatus("Carregando dados...", "info");
 
     loadBootstrap()
@@ -79,7 +80,8 @@
       "materialsList",
       "clearSelectionBtn",
       "status-dia",
-      "id_funcionario",
+      "loadingOverlay",
+      "loadingOverlayText",
     ].forEach((id) => {
       refs[id] = document.getElementById(id);
     });
@@ -93,6 +95,7 @@
     refs.statusDia = document.getElementById("status-dia");
     refs.loadingOverlay = document.getElementById("loadingOverlay");
     refs.loadingOverlayText = document.getElementById("loadingOverlayText");
+    refs.materialTabButtons = Array.from(document.querySelectorAll("[data-material-tab]"));
     refs.saveButton = refs.requestForm ? refs.requestForm.querySelector('button[type="submit"]') : null;
     refs.resetButton = null;
   }
@@ -117,6 +120,14 @@
 
     refs.materialsList?.addEventListener("input", handleItemChange);
     refs.materialsList?.addEventListener("change", handleItemChange);
+
+    refs.materialTabButtons?.forEach((button) => {
+      button.addEventListener("click", () => {
+        const tab = String(button.dataset.materialTab || "").trim();
+        if (!tab || tab === state.activeTab) return;
+        setActiveMaterialTab(tab, { clearSelection: true });
+      });
+    });
   }
 
   function renderBaseOptions() {
@@ -248,7 +259,9 @@
       });
     }
 
+    state.activeTab = getActiveMaterialTab();
     fillPriorityOptions(data);
+    updateMaterialTabButtons();
     renderMaterials();
     setDefaultDate(data.defaults?.dateToday || todayIso());
     updateSummaryLabels();
@@ -298,12 +311,13 @@
 
     refs.materialsList.innerHTML = "";
 
-    if (!state.itens.length) {
+    const items = getItemsForActiveTab();
+    if (!items.length) {
       setEmptyStateVisibility();
       return;
     }
 
-    state.itens.forEach((item) => {
+    items.forEach((item) => {
       refs.materialsList.appendChild(createMaterialCard(item));
     });
 
@@ -325,6 +339,10 @@
     if (estoqueMinimo !== null) {
       descParts.push(`Estoque mínimo: ${estoqueMinimo}`);
     }
+
+    const tabLabel = getMaterialTabLabel(getMaterialTabKey(item));
+    descParts.unshift(`Aba: ${tabLabel}`);
+
     if (!descParts.length) descParts.push("Carregado do Google Sheets.");
 
     article.innerHTML = `
@@ -366,6 +384,67 @@
 
     syncSelection();
     return article;
+  }
+
+  function getMaterialTabKey(item) {
+    const observation = String(
+      item?.observacao ??
+      item?.observation ??
+      item?.obs ??
+      item?.observacoes ??
+      ""
+    ).trim();
+
+    const normalized = normalizeForMatch(observation);
+
+    if (normalized.includes("estrutura")) return "estrutura";
+    if (normalized.includes("instalador")) return "instalador";
+
+    return "instalador";
+  }
+
+  function getMaterialTabLabel(tab) {
+    return tab === "estrutura" ? "Estrutura" : "Instalador";
+  }
+
+  function getItemsForActiveTab() {
+    const activeTab = getActiveMaterialTab();
+    return state.itens.filter((item) => getMaterialTabKey(item) === activeTab);
+  }
+
+  function getActiveMaterialTab() {
+    return state.activeTab === "estrutura" ? "estrutura" : "instalador";
+  }
+
+  function updateMaterialTabButtons() {
+    const activeTab = getActiveMaterialTab();
+
+    refs.materialTabButtons?.forEach((button) => {
+      const tab = String(button.dataset.materialTab || "").trim();
+      const isActive = tab === activeTab;
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-selected", isActive ? "true" : "false");
+      button.setAttribute("tabindex", isActive ? "0" : "-1");
+    });
+  }
+
+  function setActiveMaterialTab(tab, { clearSelection: shouldClearSelection = true } = {}) {
+    const normalizedTab = tab === "estrutura" ? "estrutura" : "instalador";
+    const previousTab = getActiveMaterialTab();
+
+    if (previousTab === normalizedTab) return;
+
+    if (shouldClearSelection) {
+      clearSelection();
+    }
+
+    state.activeTab = normalizedTab;
+    updateMaterialTabButtons();
+    renderMaterials();
+    syncSummary();
+    renderPayloadPreview();
+    persistDraft();
+    setStatus(`Aba ${getMaterialTabLabel(normalizedTab)} selecionada. As escolhas anteriores foram limpas.`, "info");
   }
 
   function parsePositiveInteger(value) {
@@ -560,11 +639,15 @@
     const empty = document.getElementById("itemsEmpty");
     if (!empty) return;
 
+    const activeTab = getActiveMaterialTab();
+    const activeLabel = getMaterialTabLabel(activeTab);
+    const visibleItems = getItemsForActiveTab();
     const hasRows = Boolean(refs.materialsList && refs.materialsList.querySelector(".material-item"));
+
     empty.style.display = hasRows ? "none" : "block";
-    empty.textContent = state.itens.length
-      ? "Nenhum item selecionado ainda. Marque os itens acima para montar o pedido."
-      : "Nenhum item ativo foi carregado do Google Sheets nesta sessão.";
+    empty.textContent = visibleItems.length
+      ? `Nenhum item selecionado ainda na aba ${activeLabel}. Marque os itens acima para montar o pedido.`
+      : `Nenhum item da aba ${activeLabel} foi carregado do Google Sheets nesta sessão.`;
   }
 
   function clearSelection() {
@@ -670,7 +753,7 @@
     const shareText = buildSuccessShareText({ currentShape, selectedItems, generatedAt });
     let sheetPayload;
 
-    setLoadingOverlay(true, "Enviando Pedido");
+    setLoadingOverlay(true, "Enviando pedido...");
 
     try {
       sheetPayload = buildPayloadForSheets(selectedItems, currentShape);
